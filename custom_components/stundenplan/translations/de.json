@@ -1,0 +1,101 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Stundenplan",
+        "description": "Gib die Zugangsdaten deiner Schule ein. Schulnummer und Zugangsdaten erhältst du von deiner Schule.",
+        "data": {
+          "schulnummer": "Schulnummer",
+          "username": "Benutzername",
+          "password": "Passwort",
+          "abrufzeit": "Abrufzeitpunkt (täglich)"
+        }
+      },
+      "klasse": {
+        "title": "Klasse auswählen",
+        "data": {
+          "klasse": "Klasse"
+        }
+      },
+      "klasse_manuell": {
+        "title": "Klasse eingeben",
+        "description": "In den nächsten {tage} Tagen wurde kein Plan gefunden (z. B. wegen Ferien), daher konnte die Klassenliste nicht automatisch ermittelt werden. Bitte gib den Klassennamen genauso ein, wie ihn deine Schule verwendet (z. B. „10a“).",
+        "data": {
+          "klasse": "Klasse"
+        }
+      },
+      "faecher": {
+        "title": "Fächer und Kurse ignorieren",
+        "description": "Wähle Fächer aus, die ignoriert werden sollen (z. B. für dein Kind nicht relevante Fächer). Bei geteiltem Unterricht (z. B. zwei parallele Kurse im selben Fach) wähle zusätzlich die nicht zutreffende Kursgruppe aus. Beides wird bei der Ermittlung der ersten Stunde und im gespeicherten Tagesplan ausgeschlossen - auch bei Ausfall, sofern das Kürzel im Hinweistext erkennbar ist.",
+        "data": {
+          "ignorierte_faecher": "Ignorierte Fächer",
+          "ignorierte_kurse": "Ignorierte Kursgruppen"
+        }
+      },
+      "kalender": {
+        "title": "Ferienkalender (optional)",
+        "description": "Optional: Wähle eine Kalender-Entität mit den Schulferien aus. An dort eingetragenen Ferientagen erfolgt kein Abruf.",
+        "data": {
+          "ferien_kalender": "Ferienkalender"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Erneut anmelden",
+        "description": "Das Passwort für Stundenplan24 scheint nicht mehr zu stimmen. Bitte gib es erneut ein.",
+        "data": {
+          "username": "Benutzername",
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Benutzername oder Passwort ungültig.",
+      "cannot_connect": "Verbindung zu Stundenplan24 nicht möglich."
+    },
+    "abort": {
+      "already_configured": "Diese Kombination aus Schulnummer und Benutzername ist bereits konfiguriert.",
+      "reauth_successful": "Erneute Anmeldung war erfolgreich."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Stundenplan-Einstellungen",
+        "data": {
+          "klasse": "Klasse",
+          "abrufzeit": "Abrufzeitpunkt (täglich)",
+          "ferien_kalender": "Ferienkalender (optional)"
+        }
+      },
+      "faecher": {
+        "title": "Fächer und Kurse ignorieren",
+        "data": {
+          "ignorierte_faecher": "Ignorierte Fächer",
+          "ignorierte_kurse": "Ignorierte Kursgruppen"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "erste_stunde": {
+        "name": "Erste Stunde"
+      },
+      "tagesplan": {
+        "name": "Tagesplan"
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Abrufen",
+      "description": "Ruft den Plan sofort manuell ab (Wochenend-/Ferien-Prüfung gilt weiterhin).",
+      "fields": {
+        "entry_id": {
+          "name": "Config-Entry-ID",
+          "description": "Optional: nur einen bestimmten konfigurierten Eintrag aktualisieren. Wenn leer, werden alle aktualisiert."
+        }
+      }
+    }
+  }
+}

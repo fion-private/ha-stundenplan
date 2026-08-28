@@ -1,0 +1,12 @@
+{
+  "domain": "stundenplan",
+  "name": "Stundenplan",
+  "codeowners": ["@fion-private"],
+  "config_flow": true,
+  "documentation": "https://github.com/fion-private/ha-stundenplan",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/fion-private/ha-stundenplan/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

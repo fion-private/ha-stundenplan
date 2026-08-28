@@ -1,0 +1,15 @@
+-r requirements.txt
+
+pytest>=8.0
+pytest-asyncio>=0.24
+pytest-cov>=5.0
+aioresponses>=0.7.6
+freezegun>=1.5
+
+# Wird nur für den Import von custom_components/stundenplan/coordinator.py
+# und __init__.py benötigt (ConfigEntry, DataUpdateCoordinator, ...). Die
+# Tests instanziieren dafür KEINEN vollständigen laufenden Home-Assistant-Kern.
+homeassistant>=2024.6
+
+ruff>=0.6
+mypy>=1.11

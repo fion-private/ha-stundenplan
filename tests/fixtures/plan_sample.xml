@@ -1,0 +1,131 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<VpMobil>
+  <Kopf>
+    <planart>K</planart>
+    <zeitstempel>25.08.2026, 12:00</zeitstempel>
+    <DatumPlan>Freitag, 28. August 2026</DatumPlan>
+    <datei>PlanKl20260828.xml</datei>
+    <nativ>1</nativ>
+    <woche>2</woche>
+    <tageprowoche>5</tageprowoche>
+    <schulnummer/>
+  </Kopf>
+  <FreieTage>
+    <ft>260601</ft>
+    <ft>260602</ft>
+    <ft>261012</ft>
+  </FreieTage>
+  <Klassen>
+    <Kl>
+      <Kurz>5a</Kurz>
+      <Hash/>
+      <KlStunden>
+        <KlSt ZeitVon="08:00" ZeitBis="08:45">1</KlSt>
+        <KlSt ZeitVon="08:50" ZeitBis="09:35">2</KlSt>
+        <KlSt ZeitVon="09:50" ZeitBis="10:35">3</KlSt>
+        <KlSt ZeitVon="10:50" ZeitBis="11:35">4</KlSt>
+      </KlStunden>
+      <Kurse>
+        <Ku>
+          <KKz KLe="Ab">WPK1</KKz>
+        </Ku>
+        <Ku>
+          <KKz KLe="Cd">WPK2</KKz>
+        </Ku>
+      </Kurse>
+      <Unterricht>
+        <Ue>
+          <UeNr UeLe="Mu" UeFa="MA">10</UeNr>
+        </Ue>
+        <Ue>
+          <UeNr UeLe="Sn" UeFa="DE">11</UeNr>
+        </Ue>
+        <Ue>
+          <UeNr UeLe="Ab" UeFa="WPK" UeGr="WPK1">12</UeNr>
+        </Ue>
+        <Ue>
+          <UeNr UeLe="Cd" UeFa="WPK" UeGr="WPK2">13</UeNr>
+        </Ue>
+      </Unterricht>
+      <Pl>
+        <Std>
+          <St>1</St>
+          <Beginn>08:00</Beginn>
+          <Ende>08:45</Ende>
+          <Fa>MA</Fa>
+          <Le>Mu</Le>
+          <Ra>101</Ra>
+          <Nr>10</Nr>
+          <If/>
+        </Std>
+        <Std>
+          <St>2</St>
+          <Beginn>08:50</Beginn>
+          <Ende>09:35</Ende>
+          <Fa FaAe="FaGeaendert">DE</Fa>
+          <Le LeAe="LeGeaendert">Sn</Le>
+          <Ra RaAe="RaGeaendert">102</Ra>
+          <Nr>11</Nr>
+          <If>für DE Herr Sonne</If>
+        </Std>
+        <Std>
+          <St>3</St>
+          <Beginn>09:50</Beginn>
+          <Ende>10:35</Ende>
+          <Fa>WPK1</Fa>
+          <Ku2>WPK1</Ku2>
+          <Le>Ab</Le>
+          <Ra>103</Ra>
+          <Nr>12</Nr>
+          <If/>
+        </Std>
+        <Std>
+          <St>3</St>
+          <Beginn>09:50</Beginn>
+          <Ende>10:35</Ende>
+          <Fa>WPK2</Fa>
+          <Ku2>WPK2</Ku2>
+          <Le>Cd</Le>
+          <Ra>104</Ra>
+          <Nr>13</Nr>
+          <If/>
+        </Std>
+        <Std>
+          <St>4</St>
+          <Beginn>10:50</Beginn>
+          <Ende>11:35</Ende>
+          <Fa FaAe="FaGeaendert">---</Fa>
+          <Le LeAe="LeGeaendert"/>
+          <Ra RaAe="RaGeaendert"/>
+          <Nr>14</Nr>
+          <If>MA Herr Mueller fällt aus</If>
+        </Std>
+      </Pl>
+    </Kl>
+    <Kl>
+      <Kurz>6b</Kurz>
+      <Hash/>
+      <KlStunden>
+        <KlSt ZeitVon="08:00" ZeitBis="08:45">1</KlSt>
+      </KlStunden>
+      <Kurse/>
+      <Unterricht>
+        <Ue>
+          <UeNr UeLe="Xy" UeFa="EN">20</UeNr>
+        </Ue>
+      </Unterricht>
+      <Pl>
+        <Std>
+          <St>1</St>
+          <Beginn>08:00</Beginn>
+          <Ende>08:45</Ende>
+          <Fa>EN</Fa>
+          <Le>Xy</Le>
+          <Ra>201</Ra>
+          <Nr>20</Nr>
+          <If/>
+        </Std>
+      </Pl>
+    </Kl>
+  </Klassen>
+</VpMobil>

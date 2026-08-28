@@ -1,0 +1,5 @@
+# Home Assistant selbst stellt aiohttp bereits zur Laufzeit bereit.
+# Diese Datei dokumentiert die Abhängigkeit lediglich für lokale Entwicklung
+# außerhalb einer echten Home-Assistant-Umgebung (z.B. zum Ausführen der
+# Unit-Tests in tests/).
+aiohttp>=3.9

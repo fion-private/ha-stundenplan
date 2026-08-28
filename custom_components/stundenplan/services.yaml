@@ -1,0 +1,14 @@
+refresh:
+  name: Refresh
+  description: >-
+    Fetches the timetable immediately. The weekend and holiday checks
+    described in the README still apply.
+  fields:
+    entry_id:
+      name: Config entry ID
+      description: >-
+        Optional: only refresh a specific configured school/class entry.
+        If empty, all configured entries are refreshed.
+      required: false
+      selector:
+        text:
