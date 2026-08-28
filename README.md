@@ -87,22 +87,6 @@ Both sensors also expose `ziel_datum`, `kein_plan_gefunden` and
 `uebersprungen_grund` (e.g. `wochenende`, `ferien`, `ferien_kalender`) so you
 can react to them in automations/templates.
 
-## Integration icon
-
-The integration itself uses `mdi:school-outline` in blue as its icon and
-logo (see [`brands/`](brands/) for the generated assets and — importantly —
-why a PR to [home-assistant/brands](https://github.com/home-assistant/brands)
-is required for it to actually show up in Home Assistant and HACS). Until
-that PR is merged, the integration falls back to a generic placeholder icon
-in the UI; this does not affect functionality.
-
-## Icon
-
-The two sensor entities use `mdi:clock-start` (first lesson) and
-`mdi:timetable` (day plan) respectively, set directly on the entity classes
-in `sensor.py`. For the icon of the *integration itself*, see the section
-above.
-
 ## Service
 
 `stundenplan.refresh` — fetches the plan immediately (e.g. for testing). The
