@@ -1,6 +1,6 @@
 # Stundenplan
 
-*Home Assistant Integration für Indiware Stundenplan*
+*Home Assistant Integration for Indiware Stundenplan*
 
 [![CI](https://github.com/fion-private/ha-stundenplan/actions/workflows/ci.yml/badge.svg)](https://github.com/fion-private/ha-stundenplan/actions/workflows/ci.yml)
 [![HACS Custom Repository](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
