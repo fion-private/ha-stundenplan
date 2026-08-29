@@ -1,10 +1,13 @@
-"""Coordinator für Stundenplan24 / Indiware.
+"""Coordinator for the Stundenplan integration.
 
-Es wird bewusst NICHT in einem festen Intervall gepollt. Der Abruf wird
-stattdessen von außen (siehe __init__.py, async_track_time_change) genau
-zur konfigurierten Uhrzeit ausgelöst. Vor jedem echten Abruf prüft der
-Coordinator, ob für den Zieltag überhaupt Schule ist (Wochenende, aus dem
-letzten Plan bekannte Ferientage, optionaler Ferienkalender).
+Polling runs on a fixed hourly interval (see const.UPDATE_INTERVAL) via
+Home Assistant's built-in DataUpdateCoordinator scheduling. Before every
+fetch, the coordinator checks whether the target day is a school day at
+all (weekend, holidays known from the last fetched plan, optional holiday
+calendar).
+
+Both today's and tomorrow's plan are fetched on every update, so entities
+can show "today" and "tomorrow" data side by side.
 """
 from __future__ import annotations
 
@@ -26,29 +29,39 @@ from .api import (
     Stundenplan24NotFoundError,
 )
 from .const import (
-    CONF_FERIEN_KALENDER,
-    CONF_IGNORIERTE_FAECHER,
-    CONF_IGNORIERTE_KURSE,
-    CONF_KLASSE,
+    CONF_CLASS_NAME,
+    CONF_HOLIDAY_CALENDAR,
+    CONF_IGNORED_COURSES,
+    CONF_IGNORED_SUBJECTS,
     DOMAIN,
+    UPDATE_INTERVAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class PlanData:
-    """Den Entitäten zur Verfügung gestellte, bereits gefilterte Daten."""
+class DayPlan:
+    """Filtered, ready-to-display data for a single day."""
 
-    ziel_datum: date
-    kein_plan_gefunden: bool = False
-    uebersprungen_grund: str | None = None
-    erste_stunde: dict | None = None
-    stunden: list[dict] = field(default_factory=list)
+    target_date: date
+    plan_not_found: bool = False
+    skipped_reason: str | None = None
+    first_lesson: dict | None = None
+    last_lesson: dict | None = None
+    lessons: list[dict] = field(default_factory=list)
+
+
+@dataclass
+class PlanData:
+    """Data made available to entities: today's and tomorrow's day plan."""
+
+    today: DayPlan
+    tomorrow: DayPlan
 
 
 class Stundenplan24Coordinator(DataUpdateCoordinator[PlanData]):
-    """Holt einmal täglich (zeitgesteuert) den Plan der konfigurierten Klasse."""
+    """Fetches today's and tomorrow's plan for the configured class, on a schedule."""
 
     def __init__(
         self,
@@ -60,157 +73,182 @@ class Stundenplan24Coordinator(DataUpdateCoordinator[PlanData]):
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=None,  # kein Polling - Abruf wird extern getriggert
+            update_interval=UPDATE_INTERVAL,
         )
         self._entry = entry
         self._client = client
-        self._cached_freie_tage: set[date] = set()
-        self._aktualisiere_konfiguration()
+        self._cached_free_days: set[date] = set()
+        self._reload_config()
 
-    def _aktualisiere_konfiguration(self) -> None:
-        daten = {**self._entry.data, **self._entry.options}
-        self._klasse: str = daten.get(CONF_KLASSE, "")
-        self._ignorierte_faecher: set[str] = set(daten.get(CONF_IGNORIERTE_FAECHER, []))
-        self._ignorierte_kurse: set[str] = set(daten.get(CONF_IGNORIERTE_KURSE, []))
-        self._ferien_kalender: str | None = daten.get(CONF_FERIEN_KALENDER)
+    def _reload_config(self) -> None:
+        data = {**self._entry.data, **self._entry.options}
+        self._class_name: str = data.get(CONF_CLASS_NAME, "")
+        self._ignored_subjects: set[str] = set(data.get(CONF_IGNORED_SUBJECTS, []))
+        self._ignored_courses: set[str] = set(data.get(CONF_IGNORED_COURSES, []))
+        self._holiday_calendar: str | None = data.get(CONF_HOLIDAY_CALENDAR)
 
-    @staticmethod
-    def _ziel_datum() -> date:
-        """Wir wollen immer den Plan für den nächsten Kalendertag."""
-        return dt_util.now().date() + timedelta(days=1)
-
-    async def _ist_kalender_ferientag(self, ziel_datum: date) -> bool:
-        """Prüft die optionale Ferienkalender-Entität für den Zieltag."""
-        if not self._ferien_kalender:
+    async def _is_calendar_holiday(self, target_date: date) -> bool:
+        """Checks the optional holiday calendar entity for the target date."""
+        if not self._holiday_calendar:
             return False
-        if self.hass.states.get(self._ferien_kalender) is None:
+        if self.hass.states.get(self._holiday_calendar) is None:
             _LOGGER.warning(
-                "Konfigurierte Ferienkalender-Entität %s wurde nicht gefunden",
-                self._ferien_kalender,
+                "Configured holiday calendar entity %s was not found",
+                self._holiday_calendar,
             )
             return False
 
-        start = dt_util.as_local(datetime.combine(ziel_datum, time.min))
+        start = dt_util.as_local(datetime.combine(target_date, time.min))
         end = start + timedelta(days=1)
         try:
-            antwort = await self.hass.services.async_call(
+            response = await self.hass.services.async_call(
                 "calendar",
                 "get_events",
                 service_data={
                     "start_date_time": start.isoformat(),
                     "end_date_time": end.isoformat(),
                 },
-                target={"entity_id": self._ferien_kalender},
+                target={"entity_id": self._holiday_calendar},
                 blocking=True,
                 return_response=True,
             )
-        except Exception as err:  # noqa: BLE001 - Kalenderabruf darf den Abruf nicht crashen
-            _LOGGER.warning("Abfrage des Ferienkalenders fehlgeschlagen: %s", err)
+        except Exception as err:  # noqa: BLE001 - a calendar lookup must never crash the fetch
+            _LOGGER.warning("Holiday calendar lookup failed: %s", err)
             return False
 
-        if not antwort:
+        if not response:
             return False
-        events = antwort.get(self._ferien_kalender, {}).get("events", [])
+        events = response.get(self._holiday_calendar, {}).get("events", [])
         return len(events) > 0
 
     async def _async_update_data(self) -> PlanData:
-        self._aktualisiere_konfiguration()
-        ziel_datum = self._ziel_datum()
+        self._reload_config()
+        today = dt_util.now().date()
+        tomorrow = today + timedelta(days=1)
+        # Fetched sequentially and deliberately not shielded from each
+        # other: if either fetch hits a real connection error, the whole
+        # update fails (raising UpdateFailed) and the coordinator keeps
+        # serving the last known-good data until the next attempt, rather
+        # than mixing fresh and stale per-day data.
+        return PlanData(
+            today=await self._fetch_day(today),
+            tomorrow=await self._fetch_day(tomorrow),
+        )
 
-        if ziel_datum.weekday() >= 5:  # Samstag=5, Sonntag=6
-            return self._uebersprungen(ziel_datum, "wochenende")
+    async def _fetch_day(self, target_date: date) -> DayPlan:
+        if target_date.weekday() >= 5:  # Saturday=5, Sunday=6
+            return self._skipped(target_date, "weekend")
 
-        if ziel_datum in self._cached_freie_tage:
-            return self._uebersprungen(ziel_datum, "ferien")
+        if target_date in self._cached_free_days:
+            return self._skipped(target_date, "holiday")
 
-        if await self._ist_kalender_ferientag(ziel_datum):
-            return self._uebersprungen(ziel_datum, "ferien_kalender")
+        if await self._is_calendar_holiday(target_date):
+            return self._skipped(target_date, "holiday_calendar")
 
         try:
-            plan = await self._client.async_fetch_plan(ziel_datum)
+            plan = await self._client.async_fetch_plan(target_date)
         except Stundenplan24NotFoundError:
-            _LOGGER.debug("Kein Plan für %s veröffentlicht", ziel_datum)
-            return PlanData(ziel_datum=ziel_datum, kein_plan_gefunden=True)
+            _LOGGER.debug("No plan published for %s", target_date)
+            return DayPlan(target_date=target_date, plan_not_found=True)
         except Stundenplan24AuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except Stundenplan24ConnectionError as err:
             raise UpdateFailed(str(err)) from err
 
-        # Die im Plan enthaltene Ferienliste für künftige Skip-Prüfungen merken.
-        self._cached_freie_tage = set(plan.freie_tage)
+        # Remember the holiday list contained in the plan for future skip checks.
+        self._cached_free_days = set(plan.free_days)
 
-        klasse_daten = plan.klassen.get(self._klasse)
-        if klasse_daten is None:
+        class_data = plan.classes.get(self._class_name)
+        if class_data is None:
             _LOGGER.warning(
-                "Klasse '%s' wurde im Plan vom %s nicht gefunden", self._klasse, ziel_datum
+                "Class '%s' was not found in the plan for %s", self._class_name, target_date
             )
-            return PlanData(ziel_datum=ziel_datum, kein_plan_gefunden=True)
+            return DayPlan(target_date=target_date, plan_not_found=True)
 
-        gefilterte_stunden = [
-            lesson for lesson in klasse_daten.lessons if not self._wird_ignoriert(lesson)
+        filtered_lessons = [
+            lesson for lesson in class_data.lessons if not self._is_ignored(lesson)
         ]
-        gefilterte_stunden.sort(key=lambda lesson: (lesson.stunde, lesson.beginn))
+        filtered_lessons.sort(key=lambda lesson: (lesson.period, lesson.start))
 
-        return PlanData(
-            ziel_datum=ziel_datum,
-            kein_plan_gefunden=False,
-            erste_stunde=self._ermittle_erste_stunde(gefilterte_stunden),
-            stunden=[self._lesson_zu_dict(l) for l in gefilterte_stunden],
+        return DayPlan(
+            target_date=target_date,
+            plan_not_found=False,
+            first_lesson=self._determine_first_lesson(filtered_lessons),
+            last_lesson=self._determine_last_lesson(filtered_lessons),
+            lessons=[self._lesson_to_dict(lesson) for lesson in filtered_lessons],
         )
 
-    def _wird_ignoriert(self, lesson: Lesson) -> bool:
-        """Prüft, ob eine Stunde laut Konfiguration ausgeschlossen werden soll.
+    def _is_ignored(self, lesson: Lesson) -> bool:
+        """Checks whether a lesson should be excluded per the configuration.
 
-        Berücksichtigt sowohl das Fach als auch - falls vorhanden bzw. aus
-        dem Hinweistext ableitbar - die Kursgruppe (z.B. bei geteiltem
-        Unterricht wie TC1/TC2, oder wenn eine Stunde ausgefallen ist und
-        nur noch über den Hinweistext erkennbar ist).
+        Considers both the subject and - where available or derivable from
+        the free-text note - the course group (e.g. for split lessons like
+        TC1/TC2, or when a lesson is cancelled and only recognizable via
+        its note text).
         """
-        if lesson.fach and lesson.fach != "---" and lesson.fach in self._ignorierte_faecher:
+        if lesson.subject and lesson.subject != "---" and lesson.subject in self._ignored_subjects:
             return True
 
-        kandidat = lesson.hinweis_kandidat
-        if kandidat and (
-            kandidat in self._ignorierte_kurse or kandidat in self._ignorierte_faecher
+        candidate = lesson.note_candidate
+        if candidate and (
+            candidate in self._ignored_courses or candidate in self._ignored_subjects
         ):
             return True
 
         return False
 
     @staticmethod
-    def _ermittle_erste_stunde(stunden: list[Lesson]) -> dict | None:
-        """Erste Stunde, die weder ausgefallen noch (bereits vorher) ignoriert wurde."""
-        relevante = [s for s in stunden if not s.entfaellt]
-        if not relevante:
+    def _determine_first_lesson(lessons: list[Lesson]) -> dict | None:
+        """First lesson that is neither cancelled nor (already) ignored."""
+        relevant = [lesson for lesson in lessons if not lesson.cancelled]
+        if not relevant:
             return None
-        erste_nummer = min(s.stunde for s in relevante)
-        eintraege = [s for s in relevante if s.stunde == erste_nummer]
+        first_period = min(lesson.period for lesson in relevant)
+        entries = [lesson for lesson in relevant if lesson.period == first_period]
         return {
-            "stunde": erste_nummer,
-            "beginn": eintraege[0].beginn,
-            "ende": eintraege[0].ende,
-            "faecher": [Stundenplan24Coordinator._lesson_zu_dict(e) for e in eintraege],
+            "period": first_period,
+            "start": entries[0].start,
+            "end": entries[0].end,
+            "subjects": [Stundenplan24Coordinator._lesson_to_dict(e) for e in entries],
         }
 
     @staticmethod
-    def _lesson_zu_dict(lesson: Lesson) -> dict:
+    def _determine_last_lesson(lessons: list[Lesson]) -> dict | None:
+        """Last lesson that is neither cancelled nor (already) ignored."""
+        relevant = [lesson for lesson in lessons if not lesson.cancelled]
+        if not relevant:
+            return None
+        last_period = max(lesson.period for lesson in relevant)
+        entries = [lesson for lesson in relevant if lesson.period == last_period]
         return {
-            "stunde": lesson.stunde,
-            "beginn": lesson.beginn,
-            "ende": lesson.ende,
-            "fach": lesson.fach,
-            "kurs": lesson.kurs,
-            "lehrer": lesson.lehrer,
-            "raum": lesson.raum,
-            "hinweis": lesson.hinweis,
-            "status": lesson.status,
-            "faellt_aus": lesson.entfaellt,
+            "period": last_period,
+            "start": entries[0].start,
+            "end": entries[0].end,
+            "subjects": [Stundenplan24Coordinator._lesson_to_dict(e) for e in entries],
         }
 
-    def _uebersprungen(self, ziel_datum: date, grund: str) -> PlanData:
-        _LOGGER.debug("Abruf für %s übersprungen (%s)", ziel_datum, grund)
-        vorherige = self.data
-        if vorherige is not None and vorherige.ziel_datum == ziel_datum:
-            # Bereits vorhandene Daten für diesen Tag nicht verwerfen.
-            return vorherige
-        return PlanData(ziel_datum=ziel_datum, uebersprungen_grund=grund)
+    @staticmethod
+    def _lesson_to_dict(lesson: Lesson) -> dict:
+        return {
+            "period": lesson.period,
+            "start": lesson.start,
+            "end": lesson.end,
+            "subject": lesson.subject,
+            "course": lesson.course,
+            "teacher": lesson.teacher,
+            "room": lesson.room,
+            "note": lesson.note,
+            "status": lesson.status,
+            "cancelled": lesson.cancelled,
+        }
+
+    def _skipped(self, target_date: date, reason: str) -> DayPlan:
+        _LOGGER.debug("Fetch for %s skipped (%s)", target_date, reason)
+        previous = self.data
+        if previous is not None:
+            for day_plan in (previous.today, previous.tomorrow):
+                if day_plan.target_date == target_date:
+                    # Keep already-available data for this date instead of
+                    # discarding it.
+                    return day_plan
+        return DayPlan(target_date=target_date, skipped_reason=reason)

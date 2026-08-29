@@ -1,6 +1,6 @@
 # Stundenplan
 
-*Home Assistant Integration for Indiware Stundenplan*
+*Home Assistant Integration für Indiware Stundenplan*
 
 [![CI](https://github.com/fion-private/ha-stundenplan/actions/workflows/ci.yml/badge.svg)](https://github.com/fion-private/ha-stundenplan/actions/workflows/ci.yml)
 [![HACS Custom Repository](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
@@ -8,9 +8,14 @@
 
 A Home Assistant custom integration that fetches a class's timetable and
 daily substitution plan from [Stundenplan24.de](https://www.stundenplan24.de)
-(Indiware) and exposes the first lesson of the day plus the full, filtered
-day plan as sensors — ready to be used in automations and, eventually, a
-dashboard card.
+(Indiware) for **today and tomorrow**, and exposes the first lesson, the
+last lesson, and the full filtered day plan for each of those two days as
+sensors — ready to be used in automations and, eventually, a dashboard card.
+
+> **⚠️ Breaking change (v2.0.0):** entity IDs, all entity/attribute names,
+> and internal config keys changed in this release (see
+> [Migrating from v1.x](#migrating-from-v1x)). If you're upgrading from an
+> earlier version, remove and re-add the integration.
 
 ## Installation
 
@@ -39,18 +44,19 @@ dashboard card.
 Go to **Settings → Devices & Services → Add Integration** and search for
 **Stundenplan**. The setup wizard walks you through:
 
-1. **Credentials**: school number, username, password, and the daily fetch
-   time (e.g. 18:30). Home Assistant verifies the credentials immediately by
-   searching the next few days for a published plan.
+1. **Credentials**: school number, username, password. Home Assistant
+   verifies the credentials immediately by searching the next few days for
+   a published plan.
 2. **Class**: chosen from the classes found in the plan (e.g. "8a").
 3. **Ignore subjects & courses**: pick subjects to ignore from the class's
    real subject catalog. If the class has split course groups (e.g. two
    parallel courses within the same subject, such as "TC1"/"TC2"), also pick
-   the group(s) that don't apply to you. Both are excluded from the "first
-   lesson" sensor **and** from the stored day plan — including when a
-   lesson is fully cancelled (see [Limitations](#known-limitations)).
+   the group(s) that don't apply to you. Both are excluded from the
+   first/last-lesson sensors **and** from the stored day plans — including
+   when a lesson is fully cancelled (see [Limitations](#known-limitations)).
 4. **Holiday calendar (optional)**: a `calendar.*` entity containing school
-   holidays. On days with an event in that calendar, no fetch is performed.
+   holidays. On days with an event in that calendar, no fetch is performed
+   for that day.
 
 If no plan can be found during initial setup (e.g. during summer holidays),
 you can enter the class name manually as text; the subject/course filters
@@ -62,34 +68,59 @@ integration.
 
 ## When does it fetch?
 
-- The fetch is **time-triggered**, exactly at the configured time — there is
-  no polling interval.
-- It always fetches the plan for the **next calendar day**.
-- Before every fetch, Home Assistant checks whether there's school at all:
-  - **Weekend** (Sat/Sun) → no fetch.
+- The integration polls **every hour** (no configurable time - see
+  `const.UPDATE_INTERVAL`) and, on every poll, retrieves **both today's and
+  tomorrow's** plan (two separate requests), so both days' entities pick up
+  a substitution soon after it's published, even mid-day.
+- Before fetching either day, Home Assistant checks whether there's school
+  on that specific day at all:
+  - **Weekend** (Sat/Sun) → no fetch for that day.
   - **Holidays** contained in the most recently fetched plan
-    (`<FreieTage>`) → no fetch.
-  - If configured: an event in the **holiday calendar** for the target date
-    → no fetch.
-- A `404` response (no plan published for the target date) is treated as a
-  normal state, not an error.
+    (`<FreieTage>`) → no fetch for that day.
+  - If configured: an event in the **holiday calendar** on that day → no
+    fetch for that day.
+- A `404` response (no plan published for a given date) is treated as a
+  normal state for that day, not an error.
+- If fetching either day hits a real connection error, the whole update is
+  retried at the next hourly poll and the previous data is kept meanwhile
+  (standard Home Assistant coordinator behavior) — a failure on one day
+  never mixes stale and fresh data.
 - On genuine authentication failures (401/403), Home Assistant automatically
   starts a "Reauthenticate" flow.
+- Use the `stundenplan.refresh` [service](#service) if you want to fetch
+  immediately instead of waiting for the next hourly poll.
 
 ## Entities
 
+Every entity exists twice: once for **today** and once for **tomorrow**.
+
 | Entity | Description |
 |---|---|
-| `sensor.<class>_erste_stunde` | Start time of the first lesson (cancellations and ignored subjects/courses excluded). Attributes: `stunde` (period number), `ende`, `faecher` (list, for parallel groups). |
-| `sensor.<class>_tagesplan` | Target date as its state. The `stunden` attribute holds the complete, filtered list of all lessons (subject, course group, teacher, room, hint text, status `regulaer`/`geaendert`/`entfaellt`) — the basis for a future dashboard card. |
+| `sensor.<class>_lesson_start_today` / `_tomorrow` | Start time of the first lesson of that day (cancellations and ignored subjects/courses excluded). Attributes: `period`, `end`, `subjects` (list, for parallel groups). |
+| `sensor.<class>_lesson_end_today` / `_tomorrow` | End time of the last lesson of that day (same exclusions as above). Attributes: `period`, `start`, `subjects`. |
+| `sensor.<class>_day_plan_today` / `_tomorrow` | The day's target date as its state. The `lessons` attribute holds the complete, filtered list of all lessons (subject, course group, teacher, room, note, status `regular`/`changed`/`cancelled`) — the basis for a future dashboard card. |
 
-Both sensors also expose `ziel_datum`, `kein_plan_gefunden` and
-`uebersprungen_grund` (e.g. `wochenende`, `ferien`, `ferien_kalender`) so you
-can react to them in automations/templates.
+All six sensors also expose `target_date`, `plan_not_found` and
+`skipped_reason` (e.g. `weekend`, `holiday`, `holiday_calendar`) so you can
+react to them in automations/templates.
+
+## Integration icon
+
+The integration itself uses `mdi:school-outline` in blue as its icon and
+logo (see [`brands/`](brands/) for the generated assets and — importantly —
+why a PR to [home-assistant/brands](https://github.com/home-assistant/brands)
+is required for it to actually show up in Home Assistant and HACS). Until
+that PR is merged, the integration falls back to a generic placeholder icon
+in the UI; this does not affect functionality.
+
+The two lesson-time sensors use `mdi:clock-start` / `mdi:clock-end`, and the
+day-plan sensors use `mdi:timetable`, set directly on the entity classes in
+`sensor.py`.
 
 ## Service
 
-`stundenplan.refresh` — fetches the plan immediately (e.g. for testing). The
+`stundenplan.refresh` — fetches today's and tomorrow's plan immediately
+instead of waiting for the next hourly poll (e.g. for testing). The
 weekend/holiday checks described above still apply. Optional field
 `entry_id` to refresh only a specific configured entry; if omitted, all
 configured entries are refreshed.
@@ -104,30 +135,56 @@ config dialog to hide the group that doesn't apply to your child.
 
 If such a course lesson is fully cancelled, the `<Ku2>` code is preserved in
 the source XML even though the subject itself shows as `---` — so cancelled
-course lessons are filtered correctly too.
+course lessons are filtered correctly too, on both the first- and
+last-lesson sensors.
 
 For subjects **without** split course groups that are fully cancelled, the
-XML contains neither a subject code nor a course code, only a free-text hint
+XML contains neither a subject code nor a course code, only a free-text note
 (e.g. "MA Frau Matthes fällt aus"). In that case, the integration extracts
-the likely subject code from the hint text (first word, optionally after
+the likely subject code from the note text (first word, optionally after
 "für " or after a semicolon) and matches it against your ignored subjects
 too. This is a heuristic based on the typical phrasing used by Indiware
 substitution plans and may occasionally be wrong for unusual phrasing.
 
 ## Known limitations
 
-- The hint-text heuristic described above is not 100% guaranteed to be
+- The note-text heuristic described above is not 100% guaranteed to be
   correct, since it relies on typical substitution-text phrasing rather than
   structured data.
-- **Holiday calendar**: currently checks whether *any* event exists on the
-  target date in the configured calendar. Finer control (e.g. matching only
+- **Holiday calendar**: currently checks whether *any* event exists on a
+  given day in the configured calendar. Finer control (e.g. matching only
   specific event titles) could be added in a future version.
 
 ## Dashboard card
 
 The complete day plan data is already available, structured, in the
-`stunden` attribute of the day-plan sensor. A dedicated Lovelace card for it
-is a natural next step.
+`lessons` attribute of the day-plan sensors. A dedicated Lovelace card for
+it (`ha-stundenplan-ui`) is being developed as a companion project.
+
+## Migrating from v1.x
+
+Version 2.0.0 renamed essentially everything for consistency (English
+source code, today+tomorrow instead of just tomorrow, first+last lesson
+instead of just first lesson) and switched from a once-daily,
+configurable-time fetch to hourly polling:
+
+- Internal config keys changed (e.g. `schulnummer` → `school_number`,
+  `klasse` → `class_name`, `ignorierte_faecher` → `ignored_subjects`,
+  `ignorierte_kurse` → `ignored_courses`,
+  `ferien_kalender` → `holiday_calendar`). The former `abrufzeit` (fetch
+  time) setting no longer exists — the integration now polls automatically
+  every hour instead.
+- The single `sensor.<class>_erste_stunde` and `sensor.<class>_tagesplan`
+  entities are gone, replaced by six new entities (see
+  [Entities](#entities) above) with new attribute names throughout (German
+  → English, e.g. `stunde` → `period`, `beginn` → `start`, `fach` →
+  `subject`, `ziel_datum` → `target_date`, status values `regulaer` →
+  `regular` etc.).
+
+There is no automatic migration. Please **remove the integration and add it
+again** via **Settings → Devices & Services**; you'll go through the same
+short setup wizard as before. Update any automations, templates or
+dashboards that referenced the old entity IDs or attribute names.
 
 ## Development
 

@@ -1,8 +1,8 @@
 refresh:
   name: Refresh
   description: >-
-    Fetches the timetable immediately. The weekend and holiday checks
-    described in the README still apply.
+    Fetches today's and tomorrow's timetable immediately. The weekend and
+    holiday checks described in the README still apply.
   fields:
     entry_id:
       name: Config entry ID

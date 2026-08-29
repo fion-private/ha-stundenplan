@@ -1,7 +1,6 @@
-"""Tests für custom_components.stundenplan.api.Stundenplan24Client.
+"""Tests for custom_components.stundenplan.api.Stundenplan24Client.
 
-HTTP-Aufrufe werden über `aioresponses` gemockt - es findet kein echter
-Netzwerkzugriff statt.
+HTTP calls are mocked via `aioresponses` - no real network access happens.
 """
 from __future__ import annotations
 
@@ -19,73 +18,70 @@ from custom_components.stundenplan.api import (
 )
 from custom_components.stundenplan.const import BASE_URL
 
-SCHULNUMMER = "12345678"
+SCHOOL_NUMBER = "12345678"
 
 
-def _url_for(ziel_datum: date) -> str:
-    return f"{BASE_URL}/{SCHULNUMMER}/mobil/mobdaten/PlanKl{ziel_datum:%Y%m%d}.xml"
+def _url_for(target_date: date) -> str:
+    return f"{BASE_URL}/{SCHOOL_NUMBER}/mobil/mobdaten/PlanKl{target_date:%Y%m%d}.xml"
 
 
 @pytest.fixture
 async def client():
     async with aiohttp.ClientSession() as session:
-        yield Stundenplan24Client(session, SCHULNUMMER, "user", "pass")
+        yield Stundenplan24Client(session, SCHOOL_NUMBER, "user", "pass")
 
 
-async def test_fetch_raw_erfolgreich(client, plan_sample_bytes, plan_sample_date):
+async def test_fetch_raw_succeeds(client, plan_sample_bytes, plan_sample_date):
     with aioresponses() as mocked:
         mocked.get(_url_for(plan_sample_date), status=200, body=plan_sample_bytes)
         raw = await client.async_fetch_raw(plan_sample_date)
     assert raw == plan_sample_bytes
 
 
-async def test_fetch_plan_parst_ergebnis(client, plan_sample_bytes, plan_sample_date):
+async def test_fetch_plan_parses_result(client, plan_sample_bytes, plan_sample_date):
     with aioresponses() as mocked:
         mocked.get(_url_for(plan_sample_date), status=200, body=plan_sample_bytes)
         plan = await client.async_fetch_plan(plan_sample_date)
-    assert "5a" in plan.klassen
+    assert "5a" in plan.classes
 
 
 @pytest.mark.parametrize("status", [401, 403])
-async def test_fetch_raw_auth_fehler(client, plan_sample_date, status):
+async def test_fetch_raw_auth_error(client, plan_sample_date, status):
     with aioresponses() as mocked:
         mocked.get(_url_for(plan_sample_date), status=status)
         with pytest.raises(Stundenplan24AuthError):
             await client.async_fetch_raw(plan_sample_date)
 
 
-async def test_fetch_raw_404_wird_zu_not_found(client, plan_sample_date):
+async def test_fetch_raw_404_becomes_not_found(client, plan_sample_date):
     with aioresponses() as mocked:
         mocked.get(_url_for(plan_sample_date), status=404)
         with pytest.raises(Stundenplan24NotFoundError):
             await client.async_fetch_raw(plan_sample_date)
 
 
-async def test_fetch_raw_serverfehler_wird_zu_connection_error(client, plan_sample_date):
+async def test_fetch_raw_server_error_becomes_connection_error(client, plan_sample_date):
     with aioresponses() as mocked:
         mocked.get(_url_for(plan_sample_date), status=500)
         with pytest.raises(Stundenplan24ConnectionError):
             await client.async_fetch_raw(plan_sample_date)
 
 
-async def test_verify_credentials_akzeptiert_404_als_gueltig(client):
+async def test_verify_credentials_accepts_404_as_valid(client):
     with aioresponses() as mocked:
         mocked.get(_url_for(date.today()), status=404)
-        # Darf keine Exception werfen - 404 heißt nur "kein Plan heute",
-        # nicht "falsche Zugangsdaten".
+        # Must not raise - 404 only means "no plan today", not "wrong credentials".
         await client.async_verify_credentials()
 
 
-async def test_verify_credentials_wirft_bei_auth_fehler(client):
+async def test_verify_credentials_raises_on_auth_error(client):
     with aioresponses() as mocked:
         mocked.get(_url_for(date.today()), status=401)
         with pytest.raises(Stundenplan24AuthError):
             await client.async_verify_credentials()
 
 
-async def test_probe_ueberspringt_404_und_findet_naechsten_plan(
-    client, plan_sample_bytes
-):
+async def test_probe_skips_404_and_finds_next_plan(client, plan_sample_bytes):
     start = date(2026, 8, 26)
     with aioresponses() as mocked:
         mocked.get(_url_for(start), status=404)
@@ -95,10 +91,10 @@ async def test_probe_ueberspringt_404_und_findet_naechsten_plan(
         plan = await client.async_probe(start, max_days=5)
 
     assert plan is not None
-    assert plan.ziel_datum == date(2026, 8, 28)
+    assert plan.target_date == date(2026, 8, 28)
 
 
-async def test_probe_gibt_none_zurueck_wenn_nichts_gefunden(client):
+async def test_probe_returns_none_when_nothing_found(client):
     start = date(2026, 8, 26)
     with aioresponses() as mocked:
         for offset in range(3):
@@ -107,7 +103,7 @@ async def test_probe_gibt_none_zurueck_wenn_nichts_gefunden(client):
     assert plan is None
 
 
-async def test_probe_bricht_bei_auth_fehler_sofort_ab(client):
+async def test_probe_aborts_immediately_on_auth_error(client):
     start = date(2026, 8, 26)
     with aioresponses() as mocked:
         mocked.get(_url_for(start), status=401)

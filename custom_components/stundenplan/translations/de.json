@@ -5,38 +5,37 @@
         "title": "Stundenplan",
         "description": "Gib die Zugangsdaten deiner Schule ein. Schulnummer und Zugangsdaten erhältst du von deiner Schule.",
         "data": {
-          "schulnummer": "Schulnummer",
+          "school_number": "Schulnummer",
           "username": "Benutzername",
-          "password": "Passwort",
-          "abrufzeit": "Abrufzeitpunkt (täglich)"
+          "password": "Passwort"
         }
       },
-      "klasse": {
+      "class": {
         "title": "Klasse auswählen",
         "data": {
-          "klasse": "Klasse"
+          "class_name": "Klasse"
         }
       },
-      "klasse_manuell": {
+      "class_manual": {
         "title": "Klasse eingeben",
-        "description": "In den nächsten {tage} Tagen wurde kein Plan gefunden (z. B. wegen Ferien), daher konnte die Klassenliste nicht automatisch ermittelt werden. Bitte gib den Klassennamen genauso ein, wie ihn deine Schule verwendet (z. B. „10a“).",
+        "description": "In den nächsten {days} Tagen wurde kein Plan gefunden (z. B. wegen Ferien), daher konnte die Klassenliste nicht automatisch ermittelt werden. Bitte gib den Klassennamen genauso ein, wie ihn deine Schule verwendet (z. B. „10a“).",
         "data": {
-          "klasse": "Klasse"
+          "class_name": "Klasse"
         }
       },
-      "faecher": {
+      "subjects": {
         "title": "Fächer und Kurse ignorieren",
-        "description": "Wähle Fächer aus, die ignoriert werden sollen (z. B. für dein Kind nicht relevante Fächer). Bei geteiltem Unterricht (z. B. zwei parallele Kurse im selben Fach) wähle zusätzlich die nicht zutreffende Kursgruppe aus. Beides wird bei der Ermittlung der ersten Stunde und im gespeicherten Tagesplan ausgeschlossen - auch bei Ausfall, sofern das Kürzel im Hinweistext erkennbar ist.",
+        "description": "Wähle Fächer aus, die ignoriert werden sollen (z. B. für dein Kind nicht relevante Fächer). Bei geteiltem Unterricht (z. B. zwei parallele Kurse im selben Fach) wähle zusätzlich die nicht zutreffende Kursgruppe aus. Beides wird bei der Ermittlung von erster/letzter Stunde und im gespeicherten Tagesplan ausgeschlossen - auch bei Ausfall, sofern das Kürzel im Hinweistext erkennbar ist.",
         "data": {
-          "ignorierte_faecher": "Ignorierte Fächer",
-          "ignorierte_kurse": "Ignorierte Kursgruppen"
+          "ignored_subjects": "Ignorierte Fächer",
+          "ignored_courses": "Ignorierte Kursgruppen"
         }
       },
-      "kalender": {
+      "calendar": {
         "title": "Ferienkalender (optional)",
         "description": "Optional: Wähle eine Kalender-Entität mit den Schulferien aus. An dort eingetragenen Ferientagen erfolgt kein Abruf.",
         "data": {
-          "ferien_kalender": "Ferienkalender"
+          "holiday_calendar": "Ferienkalender"
         }
       },
       "reauth_confirm": {
@@ -62,34 +61,45 @@
       "init": {
         "title": "Stundenplan-Einstellungen",
         "data": {
-          "klasse": "Klasse",
-          "abrufzeit": "Abrufzeitpunkt (täglich)",
-          "ferien_kalender": "Ferienkalender (optional)"
+          "class_name": "Klasse",
+          "holiday_calendar": "Ferienkalender (optional)"
         }
       },
-      "faecher": {
+      "subjects": {
         "title": "Fächer und Kurse ignorieren",
         "data": {
-          "ignorierte_faecher": "Ignorierte Fächer",
-          "ignorierte_kurse": "Ignorierte Kursgruppen"
+          "ignored_subjects": "Ignorierte Fächer",
+          "ignored_courses": "Ignorierte Kursgruppen"
         }
       }
     }
   },
   "entity": {
     "sensor": {
-      "erste_stunde": {
-        "name": "Erste Stunde"
+      "lesson_start_today": {
+        "name": "Unterrichtsbeginn (heute)"
       },
-      "tagesplan": {
-        "name": "Tagesplan"
+      "lesson_start_tomorrow": {
+        "name": "Unterrichtsbeginn (morgen)"
+      },
+      "lesson_end_today": {
+        "name": "Unterrichtsende (heute)"
+      },
+      "lesson_end_tomorrow": {
+        "name": "Unterrichtsende (morgen)"
+      },
+      "day_plan_today": {
+        "name": "Tagesplan (heute)"
+      },
+      "day_plan_tomorrow": {
+        "name": "Tagesplan (morgen)"
       }
     }
   },
   "services": {
     "refresh": {
       "name": "Abrufen",
-      "description": "Ruft den Plan sofort manuell ab (Wochenend-/Ferien-Prüfung gilt weiterhin).",
+      "description": "Ruft den Plan für heute und morgen sofort manuell ab (Wochenend-/Ferien-Prüfung gilt weiterhin).",
       "fields": {
         "entry_id": {
           "name": "Config-Entry-ID",

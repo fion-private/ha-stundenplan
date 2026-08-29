@@ -1,8 +1,8 @@
-"""Tests für custom_components.stundenplan.api - reines XML-Parsing.
+"""Tests for custom_components.stundenplan.api - pure XML parsing.
 
-Diese Tests benötigen keine Home-Assistant-Laufzeitumgebung und keinen
-Netzwerkzugriff; sie arbeiten ausschließlich auf der mitgelieferten
-Beispieldatei tests/fixtures/plan_sample.xml.
+These tests require no Home Assistant runtime and no network access; they
+work exclusively against the bundled sample file
+tests/fixtures/plan_sample.xml.
 """
 from __future__ import annotations
 
@@ -13,155 +13,153 @@ import pytest
 from custom_components.stundenplan.api import Lesson, parse_plan_xml
 
 
-def test_parse_plan_xml_findet_alle_klassen(plan_sample_bytes, plan_sample_date):
+def test_parse_plan_xml_finds_all_classes(plan_sample_bytes, plan_sample_date):
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
 
-    assert set(plan.klassen.keys()) == {"5a", "6b"}
-    assert plan.ziel_datum == plan_sample_date
+    assert set(plan.classes.keys()) == {"5a", "6b"}
+    assert plan.target_date == plan_sample_date
 
 
-def test_parse_plan_xml_strippt_bom(plan_sample_bytes, plan_sample_date):
-    # Die Fixture beginnt bewusst mit einem UTF-8-BOM, wie es reale
-    # Stundenplan24-Exporte liefern. Das Parsen darf daran nicht scheitern.
+def test_parse_plan_xml_strips_bom(plan_sample_bytes, plan_sample_date):
+    # The fixture deliberately starts with a UTF-8 BOM, as real
+    # Stundenplan24 exports do. Parsing must not fail because of it.
     assert plan_sample_bytes.startswith(b"\xef\xbb\xbf")
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
-    assert plan.klassen  # kein Fehler, Klassen wurden trotz BOM gefunden
+    assert plan.classes  # no error, classes were found despite the BOM
 
 
-def test_parse_freie_tage(plan_sample_bytes, plan_sample_date):
+def test_parse_free_days(plan_sample_bytes, plan_sample_date):
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
 
-    assert plan.freie_tage == [
+    assert plan.free_days == [
         date(2026, 6, 1),
         date(2026, 6, 2),
         date(2026, 10, 12),
     ]
 
 
-def test_faecherkatalog_enthaelt_unterricht_und_tagesplan_faecher(
+def test_subject_catalog_includes_schedule_and_syllabus_subjects(
     plan_sample_bytes, plan_sample_date
 ):
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
-    klasse = plan.klassen["5a"]
+    class_data = plan.classes["5a"]
 
-    # Aus <Unterricht>: MA, DE, WPK. Aus dem Tagesplan zusätzlich die
-    # konkreten Gruppen-Kürzel WPK1/WPK2 (die im Katalog nicht als
-    # eigenständiges Fach auftauchen, aber im Plan als <Fa> verwendet werden).
-    assert {"MA", "DE", "WPK", "WPK1", "WPK2"} <= klasse.faecher
-    # Der Ausfall-Marker "---" darf niemals als Fach gelten.
-    assert "---" not in klasse.faecher
+    # From <Unterricht>: MA, DE, WPK. From the day plan itself, additionally
+    # the concrete group codes WPK1/WPK2 (which don't appear as a standalone
+    # subject in the catalog, but are used as <Fa> in the plan).
+    assert {"MA", "DE", "WPK", "WPK1", "WPK2"} <= class_data.subjects
+    # The cancellation marker "---" must never count as a subject.
+    assert "---" not in class_data.subjects
 
 
-def test_kurskatalog_wird_geparst(plan_sample_bytes, plan_sample_date):
+def test_course_catalog_is_parsed(plan_sample_bytes, plan_sample_date):
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
-    klasse = plan.klassen["5a"]
+    class_data = plan.classes["5a"]
 
-    assert klasse.kurse == {"WPK1", "WPK2"}
+    assert class_data.courses == {"WPK1", "WPK2"}
 
 
-def test_klasse_ohne_kurse_hat_leeren_kurskatalog(plan_sample_bytes, plan_sample_date):
+def test_class_without_courses_has_empty_course_catalog(plan_sample_bytes, plan_sample_date):
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
-    klasse = plan.klassen["6b"]
+    class_data = plan.classes["6b"]
 
-    assert klasse.kurse == set()
-    assert klasse.faecher == {"EN"}
+    assert class_data.courses == set()
+    assert class_data.subjects == {"EN"}
 
 
-def test_anzahl_stunden_pro_klasse(plan_sample_bytes, plan_sample_date):
+def test_lesson_count_per_class(plan_sample_bytes, plan_sample_date):
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
 
-    assert len(plan.klassen["5a"].lessons) == 5  # inkl. der 2 parallelen WPK-Stunden
-    assert len(plan.klassen["6b"].lessons) == 1
+    assert len(plan.classes["5a"].lessons) == 5  # including the 2 parallel WPK lessons
+    assert len(plan.classes["6b"].lessons) == 1
 
 
 @pytest.mark.parametrize(
-    ("stunde", "erwartetes_fach", "erwarteter_status"),
+    ("period", "expected_subject", "expected_status"),
     [
-        (1, "MA", "regulaer"),
-        (2, "DE", "geaendert"),
-        (4, "---", "entfaellt"),
+        (1, "MA", "regular"),
+        (2, "DE", "changed"),
+        (4, "---", "cancelled"),
     ],
 )
 def test_lesson_status(
-    plan_sample_bytes, plan_sample_date, stunde, erwartetes_fach, erwarteter_status
+    plan_sample_bytes, plan_sample_date, period, expected_subject, expected_status
 ):
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
-    treffer = [
+    matches = [
         lesson
-        for lesson in plan.klassen["5a"].lessons
-        if lesson.stunde == stunde and lesson.fach == erwartetes_fach
+        for lesson in plan.classes["5a"].lessons
+        if lesson.period == period and lesson.subject == expected_subject
     ]
-    assert len(treffer) == 1
-    assert treffer[0].status == erwarteter_status
+    assert len(matches) == 1
+    assert matches[0].status == expected_status
 
 
-def test_parallele_kursgruppen_haben_unterschiedliches_ku2(
-    plan_sample_bytes, plan_sample_date
-):
+def test_parallel_course_groups_have_different_course_codes(plan_sample_bytes, plan_sample_date):
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
-    dritte_stunde = [l for l in plan.klassen["5a"].lessons if l.stunde == 3]
+    third_period = [l for l in plan.classes["5a"].lessons if l.period == 3]
 
-    assert len(dritte_stunde) == 2
-    kurse = {l.kurs for l in dritte_stunde}
-    assert kurse == {"WPK1", "WPK2"}
+    assert len(third_period) == 2
+    courses = {l.course for l in third_period}
+    assert courses == {"WPK1", "WPK2"}
 
 
-def test_hinweis_kandidat_bei_ku2_bevorzugt_ku2():
+def test_note_candidate_prefers_course_code():
     lesson = Lesson(
-        stunde=3,
-        beginn="09:50",
-        ende="10:35",
-        fach="---",
-        lehrer="",
-        raum="",
-        hinweis="WPK1 fällt aus",
-        fach_geaendert=True,
-        lehrer_geaendert=True,
-        raum_geaendert=True,
-        kurs="WPK1",
+        period=3,
+        start="09:50",
+        end="10:35",
+        subject="---",
+        teacher="",
+        room="",
+        note="WPK1 cancelled",
+        subject_changed=True,
+        teacher_changed=True,
+        room_changed=True,
+        course="WPK1",
     )
-    assert lesson.hinweis_kandidat == "WPK1"
+    assert lesson.note_candidate == "WPK1"
 
 
 @pytest.mark.parametrize(
-    ("hinweis", "erwartet"),
+    ("note", "expected"),
     [
-        ("MA Herr Mueller fällt aus", "MA"),
-        ("für DE Herr Sonne", "DE"),
-        ("verlegt von St.1; GE Frau Burger fällt aus", "GE"),
-        ("KU Herr Mai fällt aus", "KU"),
+        ("MA Mr Miller cancelled", "MA"),
+        ("für DE Mr Sun", "DE"),
+        ("moved from period 1; GE Ms Bird cancelled", "GE"),
+        ("KU Mr May cancelled", "KU"),
         ("", None),
     ],
 )
-def test_hinweis_kandidat_heuristik_ohne_ku2(hinweis, erwartet):
+def test_note_candidate_heuristic_without_course_code(note, expected):
     lesson = Lesson(
-        stunde=1,
-        beginn="08:00",
-        ende="08:45",
-        fach="---",
-        lehrer="",
-        raum="",
-        hinweis=hinweis,
-        fach_geaendert=True,
-        lehrer_geaendert=True,
-        raum_geaendert=True,
-        kurs=None,
+        period=1,
+        start="08:00",
+        end="08:45",
+        subject="---",
+        teacher="",
+        room="",
+        note=note,
+        subject_changed=True,
+        teacher_changed=True,
+        room_changed=True,
+        course=None,
     )
-    assert lesson.hinweis_kandidat == erwartet
+    assert lesson.note_candidate == expected
 
 
-def test_hinweis_kandidat_bei_regulaerer_stunde_ist_none():
+def test_note_candidate_is_none_for_a_regular_lesson():
     lesson = Lesson(
-        stunde=1,
-        beginn="08:00",
-        ende="08:45",
-        fach="MA",
-        lehrer="Mu",
-        raum="101",
-        hinweis="",
-        fach_geaendert=False,
-        lehrer_geaendert=False,
-        raum_geaendert=False,
-        kurs=None,
+        period=1,
+        start="08:00",
+        end="08:45",
+        subject="MA",
+        teacher="Miller",
+        room="101",
+        note="",
+        subject_changed=False,
+        teacher_changed=False,
+        room_changed=False,
+        course=None,
     )
-    assert lesson.hinweis_kandidat is None
+    assert lesson.note_candidate is None

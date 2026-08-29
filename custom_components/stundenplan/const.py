@@ -1,21 +1,21 @@
-"""Konstanten für die Stundenplan24 / Indiware Integration."""
+"""Constants for the Stundenplan integration."""
 from __future__ import annotations
+
+from datetime import timedelta
 
 DOMAIN = "stundenplan"
 
 BASE_URL = "https://www.stundenplan24.de"
-REQUEST_TIMEOUT = 20  # Sekunden
-PROBE_DAYS = 14  # Wie viele Tage im Config-/Options-Flow nach einem Plan gesucht wird
+REQUEST_TIMEOUT = 20  # seconds
+PROBE_DAYS = 14  # how many days ahead the config/options flow searches for a plan
+UPDATE_INTERVAL = timedelta(hours=1)  # how often today's and tomorrow's plan are fetched
 
-CONF_SCHULNUMMER = "schulnummer"
-CONF_KLASSE = "klasse"
-CONF_ABRUFZEIT = "abrufzeit"
-CONF_IGNORIERTE_FAECHER = "ignorierte_faecher"
-CONF_IGNORIERTE_KURSE = "ignorierte_kurse"
-CONF_FERIEN_KALENDER = "ferien_kalender"
+CONF_SCHOOL_NUMBER = "school_number"
+CONF_CLASS_NAME = "class_name"
+CONF_IGNORED_SUBJECTS = "ignored_subjects"
+CONF_IGNORED_COURSES = "ignored_courses"
+CONF_HOLIDAY_CALENDAR = "holiday_calendar"
 
-DEFAULT_ABRUFZEIT = "18:00:00"
-
-STATUS_REGULAR = "regulaer"
-STATUS_CHANGED = "geaendert"
-STATUS_CANCELLED = "entfaellt"
+STATUS_REGULAR = "regular"
+STATUS_CHANGED = "changed"
+STATUS_CANCELLED = "cancelled"

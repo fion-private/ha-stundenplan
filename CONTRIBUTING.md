@@ -39,9 +39,10 @@ pytest --cov=custom_components/stundenplan --cov-report=term-missing
   (auth errors, 404 handling, probing), mocked via `aioresponses`. No real
   network access.
 - `tests/test_coordinator.py` – the coordinator's filtering and evaluation
-  logic (`_wird_ignoriert`, `_ermittle_erste_stunde`, `_lesson_zu_dict`,
-  `_ziel_datum`), exercised directly/via a minimally constructed coordinator
-  instance (`object.__new__`), without spinning up a full Home Assistant core.
+  logic (`_is_ignored`, `_determine_first_lesson`, `_determine_last_lesson`,
+  `_lesson_to_dict`), exercised directly/via a minimally constructed
+  coordinator instance (`object.__new__`), without spinning up a full Home
+  Assistant core.
 - `tests/fixtures/plan_sample.xml` – a small, synthetic (**not real school
   data**) XML file mirroring the structure of a real Stundenplan24/Indiware
   `PlanKl*.xml` export, including a regular lesson, a changed lesson, a
@@ -61,10 +62,10 @@ very welcome.
   sorting, pyupgrade and a few common bug-pattern checks - the same tooling
   Home Assistant core itself uses.
 - Type hints are checked with `mypy`.
-- Internal identifiers (variables, function/class docstrings, comments) are
-  in German to match the domain (a German school schedule system) and the
-  original author's context; user-facing strings live in
-  `strings.json`/`translations/*.json` and are already localized.
+- All source code (identifiers, comments, docstrings) is in English. Only
+  the user-facing strings in `strings.json`/`translations/*.json` are
+  localized (English source/fallback, German translation) - please add new
+  strings to **both** language files in the same PR.
 
 ## Submitting changes
 

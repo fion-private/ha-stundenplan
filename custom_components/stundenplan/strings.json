@@ -5,38 +5,37 @@
         "title": "Stundenplan",
         "description": "Enter your school's access data. The school number and credentials are provided by your school.",
         "data": {
-          "schulnummer": "School number",
+          "school_number": "School number",
           "username": "Username",
-          "password": "Password",
-          "abrufzeit": "Fetch time (daily)"
+          "password": "Password"
         }
       },
-      "klasse": {
+      "class": {
         "title": "Select class",
         "data": {
-          "klasse": "Class"
+          "class_name": "Class"
         }
       },
-      "klasse_manuell": {
+      "class_manual": {
         "title": "Enter class",
-        "description": "No plan could be found in the next {tage} days (e.g. during holidays), so the class list could not be determined automatically. Please enter the class name exactly as used by your school (e.g. \"10a\").",
+        "description": "No plan could be found in the next {days} days (e.g. during holidays), so the class list could not be determined automatically. Please enter the class name exactly as used by your school (e.g. \"10a\").",
         "data": {
-          "klasse": "Class"
+          "class_name": "Class"
         }
       },
-      "faecher": {
+      "subjects": {
         "title": "Ignore subjects and courses",
-        "description": "Select subjects to ignore (e.g. subjects not relevant for your child). If the class has split course groups (e.g. two parallel courses within the same subject), also select the group(s) that don't apply. Both are excluded when determining the first lesson and from the stored day plan - including when a lesson is fully cancelled, as long as the code can be recognized in the hint text.",
+        "description": "Select subjects to ignore (e.g. subjects not relevant for your child). If the class has split course groups (e.g. two parallel courses within the same subject), also select the group(s) that don't apply. Both are excluded when determining the first/last lesson and from the stored day plan - including when a lesson is fully cancelled, as long as the code can be recognized in the note text.",
         "data": {
-          "ignorierte_faecher": "Ignored subjects",
-          "ignorierte_kurse": "Ignored course groups"
+          "ignored_subjects": "Ignored subjects",
+          "ignored_courses": "Ignored course groups"
         }
       },
-      "kalender": {
+      "calendar": {
         "title": "Holiday calendar (optional)",
         "description": "Optional: select a calendar entity containing school holidays. On days with an event there, no fetch is performed.",
         "data": {
-          "ferien_kalender": "Holiday calendar"
+          "holiday_calendar": "Holiday calendar"
         }
       },
       "reauth_confirm": {
@@ -62,34 +61,45 @@
       "init": {
         "title": "Stundenplan settings",
         "data": {
-          "klasse": "Class",
-          "abrufzeit": "Fetch time (daily)",
-          "ferien_kalender": "Holiday calendar (optional)"
+          "class_name": "Class",
+          "holiday_calendar": "Holiday calendar (optional)"
         }
       },
-      "faecher": {
+      "subjects": {
         "title": "Ignore subjects and courses",
         "data": {
-          "ignorierte_faecher": "Ignored subjects",
-          "ignorierte_kurse": "Ignored course groups"
+          "ignored_subjects": "Ignored subjects",
+          "ignored_courses": "Ignored course groups"
         }
       }
     }
   },
   "entity": {
     "sensor": {
-      "erste_stunde": {
-        "name": "First lesson"
+      "lesson_start_today": {
+        "name": "Lesson start (today)"
       },
-      "tagesplan": {
-        "name": "Day plan"
+      "lesson_start_tomorrow": {
+        "name": "Lesson start (tomorrow)"
+      },
+      "lesson_end_today": {
+        "name": "Lesson end (today)"
+      },
+      "lesson_end_tomorrow": {
+        "name": "Lesson end (tomorrow)"
+      },
+      "day_plan_today": {
+        "name": "Day plan (today)"
+      },
+      "day_plan_tomorrow": {
+        "name": "Day plan (tomorrow)"
       }
     }
   },
   "services": {
     "refresh": {
       "name": "Refresh",
-      "description": "Fetches the plan immediately (weekend/holiday checks still apply).",
+      "description": "Fetches today's and tomorrow's plan immediately (weekend/holiday checks still apply).",
       "fields": {
         "entry_id": {
           "name": "Config entry ID",

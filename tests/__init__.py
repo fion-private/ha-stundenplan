@@ -1,1 +1,1 @@
-"""Test-Suite für die Stundenplan Home Assistant Integration."""
+"""Test suite for the Stundenplan Home Assistant integration."""

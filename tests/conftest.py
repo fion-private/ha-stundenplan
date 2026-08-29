@@ -1,4 +1,4 @@
-"""Gemeinsame Fixtures für die Stundenplan-Testsuite."""
+"""Shared fixtures for the Stundenplan test suite."""
 from __future__ import annotations
 
 from datetime import date
@@ -11,11 +11,11 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 @pytest.fixture
 def plan_sample_bytes() -> bytes:
-    """Rohe Bytes der synthetischen Beispiel-XML-Datei (inkl. BOM)."""
+    """Raw bytes of the synthetic sample XML file (including BOM)."""
     return (FIXTURES_DIR / "plan_sample.xml").read_bytes()
 
 
 @pytest.fixture
 def plan_sample_date() -> date:
-    """Das im Dateinamen von plan_sample.xml kodierte Datum."""
+    """The date encoded in plan_sample.xml's filename."""
     return date(2026, 8, 28)

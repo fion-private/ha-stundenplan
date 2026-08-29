@@ -1,158 +1,172 @@
-"""Tests für die Filter- und Auswertungslogik in custom_components.stundenplan.coordinator.
+"""Tests for the filtering/evaluation logic in custom_components.stundenplan.coordinator.
 
-Es wird bewusst kein vollständiger, laufender Home-Assistant-Kern
-instanziiert: Die hier getesteten Methoden sind reine Business-Logik
-(Filterung, Ermittlung der ersten Stunde, Serialisierung) und werden direkt
-bzw. über ein minimal konstruiertes Coordinator-Objekt aufgerufen. Tests, die
-eine echte laufende Home-Assistant-Instanz benötigen (z.B. der komplette
-Refresh-Zyklus inkl. Kalenderabfrage), sind bewusst nicht Teil dieser
-leichtgewichtigen Suite - siehe CONTRIBUTING.md.
+No full, running Home Assistant core is instantiated on purpose: the
+methods tested here are pure business logic (filtering, first/last lesson
+determination, serialization) and are called directly, or via a minimally
+constructed coordinator object. Tests that need a real running Home
+Assistant instance (e.g. the full refresh cycle including the calendar
+lookup) are intentionally not part of this lightweight suite - see
+CONTRIBUTING.md.
 """
 from __future__ import annotations
-
-from datetime import date
-
-import pytest
-from freezegun import freeze_time
 
 from custom_components.stundenplan.api import Lesson
 from custom_components.stundenplan.coordinator import Stundenplan24Coordinator
 
 
 def _lesson(
-    stunde: int,
-    fach: str,
+    period: int,
+    subject: str,
     *,
-    kurs: str | None = None,
-    hinweis: str = "",
-    entfaellt: bool = False,
+    course: str | None = None,
+    note: str = "",
+    cancelled: bool = False,
 ) -> Lesson:
-    fach_wert = "---" if entfaellt else fach
+    subject_value = "---" if cancelled else subject
     return Lesson(
-        stunde=stunde,
-        beginn=f"{7 + stunde:02d}:00",
-        ende=f"{7 + stunde:02d}:45",
-        fach=fach_wert,
-        lehrer="Le",
-        raum="1.01",
-        hinweis=hinweis,
-        fach_geaendert=entfaellt,
-        lehrer_geaendert=entfaellt,
-        raum_geaendert=entfaellt,
-        kurs=kurs,
+        period=period,
+        start=f"{7 + period:02d}:00",
+        end=f"{7 + period:02d}:45",
+        subject=subject_value,
+        teacher="Teacher",
+        room="1.01",
+        note=note,
+        subject_changed=cancelled,
+        teacher_changed=cancelled,
+        room_changed=cancelled,
+        course=course,
     )
 
 
 def _coordinator_stub(
-    ignorierte_faecher: set[str] | None = None,
-    ignorierte_kurse: set[str] | None = None,
+    ignored_subjects: set[str] | None = None,
+    ignored_courses: set[str] | None = None,
 ) -> Stundenplan24Coordinator:
-    """Erzeugt ein Coordinator-Objekt ohne __init__ (kein hass/entry nötig).
+    """Creates a coordinator object without __init__ (no hass/entry needed).
 
-    Nur für Tests der reinen Filterlogik gedacht - alle anderen Attribute
-    bleiben bewusst ungesetzt.
+    Only intended for testing the pure filtering logic - all other
+    attributes are deliberately left unset.
     """
     coordinator = object.__new__(Stundenplan24Coordinator)
-    coordinator._ignorierte_faecher = ignorierte_faecher or set()
-    coordinator._ignorierte_kurse = ignorierte_kurse or set()
+    coordinator._ignored_subjects = ignored_subjects or set()
+    coordinator._ignored_courses = ignored_courses or set()
     return coordinator
 
 
-class TestWirdIgnoriert:
-    def test_reguläre_stunde_ohne_filter_wird_nicht_ignoriert(self):
+class TestIsIgnored:
+    def test_regular_lesson_without_filters_is_not_ignored(self):
         coordinator = _coordinator_stub()
-        assert coordinator._wird_ignoriert(_lesson(1, "MA")) is False
+        assert coordinator._is_ignored(_lesson(1, "MA")) is False
 
-    def test_ignoriertes_fach_wird_gefiltert(self):
-        coordinator = _coordinator_stub(ignorierte_faecher={"MA"})
-        assert coordinator._wird_ignoriert(_lesson(1, "MA")) is True
+    def test_ignored_subject_is_filtered(self):
+        coordinator = _coordinator_stub(ignored_subjects={"MA"})
+        assert coordinator._is_ignored(_lesson(1, "MA")) is True
 
-    def test_nicht_ignoriertes_fach_bleibt(self):
-        coordinator = _coordinator_stub(ignorierte_faecher={"MA"})
-        assert coordinator._wird_ignoriert(_lesson(1, "DE")) is False
+    def test_non_ignored_subject_stays(self):
+        coordinator = _coordinator_stub(ignored_subjects={"MA"})
+        assert coordinator._is_ignored(_lesson(1, "DE")) is False
 
-    def test_ignorierte_kursgruppe_wird_ueber_ku2_gefiltert(self):
-        coordinator = _coordinator_stub(ignorierte_kurse={"WPK2"})
-        stunde_a = _lesson(3, "WPK1", kurs="WPK1")
-        stunde_b = _lesson(3, "WPK2", kurs="WPK2")
-        assert coordinator._wird_ignoriert(stunde_a) is False
-        assert coordinator._wird_ignoriert(stunde_b) is True
+    def test_ignored_course_group_is_filtered_via_course_code(self):
+        coordinator = _coordinator_stub(ignored_courses={"WPK2"})
+        lesson_a = _lesson(3, "WPK1", course="WPK1")
+        lesson_b = _lesson(3, "WPK2", course="WPK2")
+        assert coordinator._is_ignored(lesson_a) is False
+        assert coordinator._is_ignored(lesson_b) is True
 
-    def test_ignoriertes_fach_wird_auch_bei_ausfall_ueber_hinweistext_erkannt(self):
-        coordinator = _coordinator_stub(ignorierte_faecher={"MA"})
-        ausfall = _lesson(1, "MA", entfaellt=True, hinweis="MA Herr Mueller fällt aus")
-        assert coordinator._wird_ignoriert(ausfall) is True
+    def test_ignored_subject_is_recognized_via_note_even_when_cancelled(self):
+        coordinator = _coordinator_stub(ignored_subjects={"MA"})
+        cancelled = _lesson(1, "MA", cancelled=True, note="MA Mr Miller cancelled")
+        assert coordinator._is_ignored(cancelled) is True
 
-    def test_ausfall_ohne_erkennbares_kuerzel_wird_nicht_faelschlich_gefiltert(self):
-        coordinator = _coordinator_stub(ignorierte_faecher={"MA"})
-        ausfall = _lesson(1, "DE", entfaellt=True, hinweis="")
-        assert coordinator._wird_ignoriert(ausfall) is False
+    def test_cancelled_lesson_without_recognizable_code_is_not_falsely_filtered(self):
+        coordinator = _coordinator_stub(ignored_subjects={"MA"})
+        cancelled = _lesson(1, "DE", cancelled=True, note="")
+        assert coordinator._is_ignored(cancelled) is False
 
-    def test_ausfall_mit_ku2_wird_ueber_kurs_ignoriert_liste_gefiltert(self):
-        coordinator = _coordinator_stub(ignorierte_kurse={"WPK1"})
-        ausfall = _lesson(
-            3, "WPK1", kurs="WPK1", entfaellt=True, hinweis="verlegt; WPK1 fällt aus"
+    def test_cancelled_lesson_with_course_code_is_filtered_via_ignored_courses(self):
+        coordinator = _coordinator_stub(ignored_courses={"WPK1"})
+        cancelled = _lesson(
+            3, "WPK1", course="WPK1", cancelled=True, note="moved; WPK1 cancelled"
         )
-        assert coordinator._wird_ignoriert(ausfall) is True
+        assert coordinator._is_ignored(cancelled) is True
 
 
-class TestErmittleErsteStunde:
-    def test_erste_stunde_ohne_ausfaelle(self):
-        stunden = [_lesson(2, "DE"), _lesson(1, "MA")]
-        ergebnis = Stundenplan24Coordinator._ermittle_erste_stunde(stunden)
-        assert ergebnis is not None
-        assert ergebnis["stunde"] == 1
-        assert ergebnis["faecher"][0]["fach"] == "MA"
+class TestDetermineFirstLesson:
+    def test_first_lesson_without_cancellations(self):
+        lessons = [_lesson(2, "DE"), _lesson(1, "MA")]
+        result = Stundenplan24Coordinator._determine_first_lesson(lessons)
+        assert result is not None
+        assert result["period"] == 1
+        assert result["subjects"][0]["subject"] == "MA"
 
-    def test_ausgefallene_erste_stunde_wird_uebersprungen(self):
-        stunden = [
-            _lesson(1, "MA", entfaellt=True, hinweis="MA fällt aus"),
+    def test_cancelled_first_lesson_is_skipped(self):
+        lessons = [
+            _lesson(1, "MA", cancelled=True, note="MA cancelled"),
             _lesson(2, "DE"),
         ]
-        ergebnis = Stundenplan24Coordinator._ermittle_erste_stunde(stunden)
-        assert ergebnis is not None
-        assert ergebnis["stunde"] == 2
+        result = Stundenplan24Coordinator._determine_first_lesson(lessons)
+        assert result is not None
+        assert result["period"] == 2
 
-    def test_parallele_gruppen_in_erster_stunde_werden_alle_gelistet(self):
-        stunden = [
-            _lesson(1, "WPK1", kurs="WPK1"),
-            _lesson(1, "WPK2", kurs="WPK2"),
+    def test_parallel_groups_in_first_period_are_all_listed(self):
+        lessons = [_lesson(1, "WPK1", course="WPK1"), _lesson(1, "WPK2", course="WPK2")]
+        result = Stundenplan24Coordinator._determine_first_lesson(lessons)
+        assert result is not None
+        assert {s["subject"] for s in result["subjects"]} == {"WPK1", "WPK2"}
+
+    def test_no_lessons_returns_none(self):
+        assert Stundenplan24Coordinator._determine_first_lesson([]) is None
+
+    def test_only_cancellations_returns_none(self):
+        lessons = [_lesson(1, "MA", cancelled=True, note="MA cancelled")]
+        assert Stundenplan24Coordinator._determine_first_lesson(lessons) is None
+
+
+class TestDetermineLastLesson:
+    def test_last_lesson_without_cancellations(self):
+        lessons = [_lesson(1, "MA"), _lesson(3, "EN"), _lesson(2, "DE")]
+        result = Stundenplan24Coordinator._determine_last_lesson(lessons)
+        assert result is not None
+        assert result["period"] == 3
+        assert result["subjects"][0]["subject"] == "EN"
+
+    def test_cancelled_last_lesson_falls_back_to_the_previous_period(self):
+        lessons = [
+            _lesson(1, "MA"),
+            _lesson(2, "DE"),
+            _lesson(3, "MA", cancelled=True, note="MA cancelled"),
         ]
-        ergebnis = Stundenplan24Coordinator._ermittle_erste_stunde(stunden)
-        assert ergebnis is not None
-        assert {f["fach"] for f in ergebnis["faecher"]} == {"WPK1", "WPK2"}
+        result = Stundenplan24Coordinator._determine_last_lesson(lessons)
+        assert result is not None
+        assert result["period"] == 2
 
-    def test_keine_stunden_ergibt_none(self):
-        assert Stundenplan24Coordinator._ermittle_erste_stunde([]) is None
+    def test_parallel_groups_in_last_period_are_all_listed(self):
+        lessons = [_lesson(1, "MA"), _lesson(3, "WPK1", course="WPK1"), _lesson(3, "WPK2", course="WPK2")]
+        result = Stundenplan24Coordinator._determine_last_lesson(lessons)
+        assert result is not None
+        assert {s["subject"] for s in result["subjects"]} == {"WPK1", "WPK2"}
 
-    def test_nur_ausfaelle_ergibt_none(self):
-        stunden = [_lesson(1, "MA", entfaellt=True, hinweis="MA fällt aus")]
-        assert Stundenplan24Coordinator._ermittle_erste_stunde(stunden) is None
+    def test_no_lessons_returns_none(self):
+        assert Stundenplan24Coordinator._determine_last_lesson([]) is None
+
+    def test_only_cancellations_returns_none(self):
+        lessons = [_lesson(1, "MA", cancelled=True, note="MA cancelled")]
+        assert Stundenplan24Coordinator._determine_last_lesson(lessons) is None
 
 
-class TestLessonZuDict:
-    def test_enthaelt_alle_erwarteten_felder(self):
-        lesson = _lesson(1, "MA", kurs="MA1", hinweis="Hinweis")
-        ergebnis = Stundenplan24Coordinator._lesson_zu_dict(lesson)
-        assert ergebnis == {
-            "stunde": 1,
-            "beginn": "08:00",
-            "ende": "08:45",
-            "fach": "MA",
-            "kurs": "MA1",
-            "lehrer": "Le",
-            "raum": "1.01",
-            "hinweis": "Hinweis",
-            "status": "regulaer",
-            "faellt_aus": False,
+class TestLessonToDict:
+    def test_contains_all_expected_fields(self):
+        lesson = _lesson(1, "MA", course="MA1", note="Note")
+        result = Stundenplan24Coordinator._lesson_to_dict(lesson)
+        assert result == {
+            "period": 1,
+            "start": "08:00",
+            "end": "08:45",
+            "subject": "MA",
+            "course": "MA1",
+            "teacher": "Teacher",
+            "room": "1.01",
+            "note": "Note",
+            "status": "regular",
+            "cancelled": False,
         }
-
-
-class TestZielDatum:
-    @freeze_time("2026-08-27 18:30:00")
-    def test_ziel_datum_ist_immer_der_naechste_kalendertag(self):
-        assert Stundenplan24Coordinator._ziel_datum() == date(2026, 8, 28)
-
-    @freeze_time("2026-08-28 23:59:59")
-    def test_ziel_datum_funktioniert_ueber_monatsgrenzen(self):
-        assert Stundenplan24Coordinator._ziel_datum() == date(2026, 8, 29)

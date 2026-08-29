@@ -1,8 +1,7 @@
-"""Async API-Client + XML-Parser für Stundenplan24 / Indiware (PlanKl-Dateien)."""
+"""Async API client + XML parser for Stundenplan24 / Indiware (PlanKl files)."""
 from __future__ import annotations
 
 import logging
-import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -15,91 +14,67 @@ _LOGGER = logging.getLogger(__name__)
 
 _BOM = b"\xef\xbb\xbf"
 
-# Erkennt bei komplett ausgefallenen Stunden (Fa == "---") das ursprüngliche
-# Fach aus dem freien Hinweistext, z.B.:
-#   "KU Herr Mai fällt aus"                      -> KU
-#   "für MA Frau Matthes"                        -> MA
-#   "verlegt von St.4; GEO Frau Korb verlegt..."  -> GEO
-# Der gefundene Kandidat wird zusätzlich gegen den bekannten Fächerkatalog
-# der Klasse geprüft, um Fehltreffer bei untypischen Hinweistexten zu
-# vermeiden.
-_FACH_AUS_HINWEIS_RE = re.compile(
-    r"(?:verlegt von St\.\d+;\s*)?(?:für\s+)?"
-    r"([A-Za-zÄÖÜäöüß0-9]+)\s+(?:Herrn?|Frau|Fr\.|Frl\.?|Hr\.?)\b"
-)
-
-
-def _rate_urspruengliches_fach(hinweis: str, bekannte_faecher: set[str]) -> str | None:
-    """Best-effort-Ermittlung des Originalfachs einer ausgefallenen Stunde."""
-    if not hinweis:
-        return None
-    match = _FACH_AUS_HINWEIS_RE.search(hinweis)
-    if not match:
-        return None
-    kandidat = match.group(1)
-    return kandidat if kandidat in bekannte_faecher else None
-
 
 class Stundenplan24Error(Exception):
-    """Basisklasse für alle Fehler dieser Integration."""
+    """Base class for all errors raised by this integration."""
 
 
 class Stundenplan24AuthError(Stundenplan24Error):
-    """Zugangsdaten wurden vom Server abgelehnt (HTTP 401/403)."""
+    """Credentials were rejected by the server (HTTP 401/403)."""
 
 
 class Stundenplan24ConnectionError(Stundenplan24Error):
-    """Verbindung fehlgeschlagen / unerwarteter Serverfehler."""
+    """Connection failed / unexpected server error."""
 
 
 class Stundenplan24NotFoundError(Stundenplan24Error):
-    """Für das angefragte Datum wurde kein Plan veröffentlicht (HTTP 404)."""
+    """No plan has been published for the requested date (HTTP 404)."""
 
 
 @dataclass
 class Lesson:
-    """Ein einzelner Unterrichts-/Plan-Eintrag (<Std>) einer Klasse."""
+    """A single lesson/period entry (<Std>) for a class."""
 
-    stunde: int
-    beginn: str
-    ende: str
-    fach: str
-    lehrer: str
-    raum: str
-    hinweis: str
-    fach_geaendert: bool
-    lehrer_geaendert: bool
-    raum_geaendert: bool
-    kurs: str | None = None  # <Ku2>: Kürzel der Kursgruppe bei geteiltem Unterricht
+    period: int
+    start: str
+    end: str
+    subject: str
+    teacher: str
+    room: str
+    note: str
+    subject_changed: bool
+    teacher_changed: bool
+    room_changed: bool
+    course: str | None = None
 
     @property
-    def entfaellt(self) -> bool:
-        """True, wenn die Stunde komplett ausfällt (Fach == '---')."""
-        return self.fach == "---"
+    def cancelled(self) -> bool:
+        """True if the lesson is fully cancelled (subject == '---')."""
+        return self.subject == "---"
 
     @property
     def status(self) -> str:
-        if self.entfaellt:
-            return "entfaellt"
-        if self.fach_geaendert or self.lehrer_geaendert or self.raum_geaendert:
-            return "geaendert"
-        return "regulaer"
+        if self.cancelled:
+            return "cancelled"
+        if self.subject_changed or self.teacher_changed or self.room_changed:
+            return "changed"
+        return "regular"
 
     @property
-    def hinweis_kandidat(self) -> str | None:
-        """Bestes Fach-/Kurskürzel für einen komplett ausgefallenen Eintrag.
+    def note_candidate(self) -> str | None:
+        """Best subject/course code for a fully cancelled lesson.
 
-        Bei geteiltem Unterricht bleibt <Ku2> auch bei Ausfall erhalten. Fehlt
-        es (z.B. bei nicht geteilten Fächern), wird versucht, das Kürzel aus
-        dem freien Hinweistext zu extrahieren (z.B. "MA Frau Matthes fällt
-        aus" -> "MA"). Das ist eine Heuristik und kann in Einzelfällen daneben
-        liegen.
+        For split course groups, <Ku2> is preserved even when the lesson is
+        cancelled. Where it's missing (e.g. non-split subjects), we try to
+        extract the code from the free-text hint (e.g. "MA Mr Miller
+        cancelled" -> "MA"). This is a heuristic and may occasionally be
+        wrong for unusual phrasing.
         """
-        if self.kurs:
-            return self.kurs
-        if not self.entfaellt:
+        if self.course:
+            return self.course
+        if not self.cancelled:
             return None
-        text = self.hinweis.strip()
+        text = self.note.strip()
         if not text:
             return None
         if ";" in text:
@@ -111,22 +86,22 @@ class Lesson:
 
 
 @dataclass
-class ParsedKlasse:
-    """Alle für eine Klasse geparsten Daten."""
+class ParsedClass:
+    """Everything parsed for a single class."""
 
-    kurz: str
-    faecher: set[str] = field(default_factory=set)
-    kurse: set[str] = field(default_factory=set)
+    short_name: str
+    subjects: set[str] = field(default_factory=set)
+    courses: set[str] = field(default_factory=set)
     lessons: list[Lesson] = field(default_factory=list)
 
 
 @dataclass
 class ParsedPlan:
-    """Das komplett geparste XML-Dokument."""
+    """The fully parsed XML document."""
 
-    ziel_datum: date
-    freie_tage: list[date]
-    klassen: dict[str, ParsedKlasse]
+    target_date: date
+    free_days: list[date]
+    classes: dict[str, ParsedClass]
 
 
 def _strip_bom(data: bytes) -> bytes:
@@ -135,126 +110,126 @@ def _strip_bom(data: bytes) -> bytes:
     return data
 
 
-def _parse_freie_tage(root: ET.Element) -> list[date]:
-    """Parst <FreieTage><ft>YYMMDD</ft>...</FreieTage> zu einer Liste von date-Objekten."""
-    freie_tage: list[date] = []
+def _parse_free_days(root: ET.Element) -> list[date]:
+    """Parses <FreieTage><ft>YYMMDD</ft>...</FreieTage> into a list of dates."""
+    free_days: list[date] = []
     for ft in root.findall("./FreieTage/ft"):
         text = (ft.text or "").strip()
         if len(text) != 6:
             continue
         try:
-            jahr = 2000 + int(text[0:2])
-            monat = int(text[2:4])
-            tag = int(text[4:6])
-            freie_tage.append(date(jahr, monat, tag))
+            year = 2000 + int(text[0:2])
+            month = int(text[2:4])
+            day = int(text[4:6])
+            free_days.append(date(year, month, day))
         except ValueError:
-            _LOGGER.debug("Konnte FreieTage-Eintrag nicht parsen: %s", text)
-    return freie_tage
+            _LOGGER.debug("Could not parse FreieTage entry: %s", text)
+    return free_days
 
 
 def _text(el: ET.Element, tag: str) -> str:
-    kind = el.find(tag)
-    return (kind.text or "").strip() if kind is not None and kind.text else ""
+    child = el.find(tag)
+    return (child.text or "").strip() if child is not None and child.text else ""
 
 
 def _changed(el: ET.Element, tag: str) -> bool:
-    """True, wenn das Element ein *Ae-Attribut trägt (z.B. FaAe="FaGeaendert")."""
-    kind = el.find(tag)
-    return kind is not None and kind.get(f"{tag}Ae") is not None
+    """True if the element carries a *Ae attribute (e.g. FaAe="FaGeaendert")."""
+    child = el.find(tag)
+    return child is not None and child.get(f"{tag}Ae") is not None
 
 
-def _parse_klassen(root: ET.Element) -> dict[str, ParsedKlasse]:
-    klassen: dict[str, ParsedKlasse] = {}
+def _parse_classes(root: ET.Element) -> dict[str, ParsedClass]:
+    classes: dict[str, ParsedClass] = {}
     for kl in root.findall("./Klassen/Kl"):
-        kurz_el = kl.find("Kurz")
-        if kurz_el is None or not (kurz_el.text or "").strip():
+        short_name_el = kl.find("Kurz")
+        if short_name_el is None or not (short_name_el.text or "").strip():
             continue
-        kurz = kurz_el.text.strip()
-        parsed = ParsedKlasse(kurz=kurz)
+        short_name = short_name_el.text.strip()
+        parsed = ParsedClass(short_name=short_name)
 
-        # Kompletter Fächerkatalog der Klasse (unabhängig vom Tagesplan) -
-        # wird für die Fächer-Auswahl im Config-/Options-Flow verwendet.
+        # Full subject catalog for the class (independent of the day plan) -
+        # used for the subject picker in the config/options flow.
         for ue in kl.findall("./Unterricht/Ue/UeNr"):
-            fach = (ue.get("UeFa") or "").strip()
-            if fach:
-                parsed.faecher.add(fach)
+            subject = (ue.get("UeFa") or "").strip()
+            if subject:
+                parsed.subjects.add(subject)
 
-        # Katalog der Kursgruppen (z.B. bei geteiltem Unterricht wie
-        # TC1/TC2 oder DeHS/DeRS) - wird für die Kurs-Auswahl verwendet.
+        # Course-group catalog (e.g. for split lessons like TC1/TC2 or
+        # DeHS/DeRS) - used for the course picker.
         for kkz in kl.findall("./Kurse/Ku/KKz"):
-            kurs = (kkz.text or "").strip()
-            if kurs:
-                parsed.kurse.add(kurs)
+            course = (kkz.text or "").strip()
+            if course:
+                parsed.courses.add(course)
 
         for std in kl.findall("./Pl/Std"):
-            st_text = _text(std, "St")
+            period_text = _text(std, "St")
             try:
-                stunde = int(st_text)
+                period = int(period_text)
             except ValueError:
                 continue
 
             lesson = Lesson(
-                stunde=stunde,
-                beginn=_text(std, "Beginn"),
-                ende=_text(std, "Ende"),
-                fach=_text(std, "Fa"),
-                lehrer=_text(std, "Le"),
-                raum=_text(std, "Ra"),
-                hinweis=_text(std, "If"),
-                fach_geaendert=_changed(std, "Fa"),
-                lehrer_geaendert=_changed(std, "Le"),
-                raum_geaendert=_changed(std, "Ra"),
-                kurs=_text(std, "Ku2") or None,
+                period=period,
+                start=_text(std, "Beginn"),
+                end=_text(std, "Ende"),
+                subject=_text(std, "Fa"),
+                teacher=_text(std, "Le"),
+                room=_text(std, "Ra"),
+                note=_text(std, "If"),
+                subject_changed=_changed(std, "Fa"),
+                teacher_changed=_changed(std, "Le"),
+                room_changed=_changed(std, "Ra"),
+                course=_text(std, "Ku2") or None,
             )
             parsed.lessons.append(lesson)
-            # Ein ausgefallenes Fach taucht im Plan als "---" auf, das
-            # eigentliche Fach steht dann nicht mehr in <Fa>. Wir nehmen
-            # daher zusätzlich alle regulären Fachkürzel aus dem Tagesplan
-            # selbst in den Katalog auf (deckt z.B. Kurse ab, die nicht in
-            # <Unterricht> auftauchen).
-            if lesson.fach and lesson.fach != "---":
-                parsed.faecher.add(lesson.fach)
-            if lesson.kurs:
-                parsed.kurse.add(lesson.kurs)
+            # A cancelled lesson shows up in the plan as "---", so the
+            # actual subject is no longer in <Fa>. We therefore also add
+            # every regular subject code found in the day plan itself to
+            # the catalog (covers e.g. courses that don't appear in
+            # <Unterricht>).
+            if lesson.subject and lesson.subject != "---":
+                parsed.subjects.add(lesson.subject)
+            if lesson.course:
+                parsed.courses.add(lesson.course)
 
-        klassen[kurz] = parsed
-    return klassen
+        classes[short_name] = parsed
+    return classes
 
 
-def parse_plan_xml(data: bytes, ziel_datum: date) -> ParsedPlan:
-    """Parst ein Stundenplan24 'PlanKl*.xml'-Dokument."""
+def parse_plan_xml(data: bytes, target_date: date) -> ParsedPlan:
+    """Parses a Stundenplan24 'PlanKl*.xml' document."""
     root = ET.fromstring(_strip_bom(data))
     return ParsedPlan(
-        ziel_datum=ziel_datum,
-        freie_tage=_parse_freie_tage(root),
-        klassen=_parse_klassen(root),
+        target_date=target_date,
+        free_days=_parse_free_days(root),
+        classes=_parse_classes(root),
     )
 
 
 class Stundenplan24Client:
-    """Schlanker asynchroner Client für den Stundenplan24-Mobil-Export."""
+    """Thin async client for the Stundenplan24 mobile export."""
 
     def __init__(
         self,
         session: aiohttp.ClientSession,
-        schulnummer: str,
+        school_number: str,
         username: str,
         password: str,
     ) -> None:
         self._session = session
-        self._schulnummer = schulnummer
+        self._school_number = school_number
         self._auth = aiohttp.BasicAuth(username, password)
 
-    def _url_for(self, ziel_datum: date) -> str:
-        return f"{BASE_URL}/{self._schulnummer}/mobil/mobdaten/PlanKl{ziel_datum:%Y%m%d}.xml"
+    def _url_for(self, target_date: date) -> str:
+        return f"{BASE_URL}/{self._school_number}/mobil/mobdaten/PlanKl{target_date:%Y%m%d}.xml"
 
-    async def async_fetch_raw(self, ziel_datum: date) -> bytes:
-        """Ruft die rohen XML-Bytes für ein Datum ab.
+    async def async_fetch_raw(self, target_date: date) -> bytes:
+        """Fetches the raw XML bytes for a date.
 
-        Wirft Stundenplan24AuthError, Stundenplan24NotFoundError oder
+        Raises Stundenplan24AuthError, Stundenplan24NotFoundError or
         Stundenplan24ConnectionError.
         """
-        url = self._url_for(ziel_datum)
+        url = self._url_for(target_date)
         try:
             async with self._session.get(
                 url,
@@ -263,15 +238,15 @@ class Stundenplan24Client:
             ) as response:
                 if response.status in (401, 403):
                     raise Stundenplan24AuthError(
-                        f"Zugangsdaten wurden abgelehnt (HTTP {response.status})"
+                        f"Credentials were rejected (HTTP {response.status})"
                     )
                 if response.status == 404:
                     raise Stundenplan24NotFoundError(
-                        f"Kein Plan für {ziel_datum.isoformat()} veröffentlicht"
+                        f"No plan published for {target_date.isoformat()}"
                     )
                 if response.status != 200:
                     raise Stundenplan24ConnectionError(
-                        f"Unerwarteter Status {response.status} von Stundenplan24"
+                        f"Unexpected status {response.status} from Stundenplan24"
                     )
                 return await response.read()
         except Stundenplan24Error:
@@ -280,19 +255,19 @@ class Stundenplan24Client:
             raise Stundenplan24ConnectionError(str(err)) from err
         except TimeoutError as err:
             raise Stundenplan24ConnectionError(
-                "Zeitüberschreitung bei der Anfrage an Stundenplan24"
+                "Timed out while requesting Stundenplan24"
             ) from err
 
-    async def async_fetch_plan(self, ziel_datum: date) -> ParsedPlan:
-        """Ruft den Plan für ein Datum ab und parst ihn."""
-        raw = await self.async_fetch_raw(ziel_datum)
-        return parse_plan_xml(raw, ziel_datum)
+    async def async_fetch_plan(self, target_date: date) -> ParsedPlan:
+        """Fetches and parses the plan for a date."""
+        raw = await self.async_fetch_raw(target_date)
+        return parse_plan_xml(raw, target_date)
 
     async def async_verify_credentials(self) -> None:
-        """Prüft nur, ob die Zugangsdaten akzeptiert werden.
+        """Checks only whether the credentials are accepted.
 
-        Ein 404 (kein Plan für heute) gilt dabei als Erfolg - es geht nur
-        um Authentifizierung, nicht um Plandaten.
+        A 404 (no plan today) counts as success here - this is only about
+        authentication, not about plan data.
         """
         try:
             await self.async_fetch_raw(date.today())
@@ -300,24 +275,24 @@ class Stundenplan24Client:
             return
 
     async def async_probe(self, start: date, max_days: int) -> ParsedPlan | None:
-        """Sucht ab `start` tageweise nach dem nächsten veröffentlichten Plan.
+        """Searches day by day, starting at `start`, for the next published plan.
 
-        Wird im Config-/Options-Flow verwendet, um die verfügbaren Klassen
-        und den Fächerkatalog zu ermitteln. Auth- und Verbindungsfehler
-        werden sofort weitergereicht, ein einzelnes 404 wird übersprungen.
-        Wird in `max_days` Tagen kein Plan gefunden (z.B. während der
-        Sommerferien), liefert die Methode None statt eines Fehlers.
+        Used by the config/options flow to discover available classes and
+        the subject/course catalog. Auth and connection errors are raised
+        immediately; a single 404 is skipped. If no plan is found within
+        `max_days` (e.g. during summer holidays), returns None instead of
+        raising.
         """
-        letzter_verbindungsfehler: Stundenplan24ConnectionError | None = None
+        last_connection_error: Stundenplan24ConnectionError | None = None
         for offset in range(max_days):
-            probe_datum = start + timedelta(days=offset)
+            probe_date = start + timedelta(days=offset)
             try:
-                return await self.async_fetch_plan(probe_datum)
+                return await self.async_fetch_plan(probe_date)
             except Stundenplan24NotFoundError:
                 continue
             except Stundenplan24ConnectionError as err:
-                letzter_verbindungsfehler = err
+                last_connection_error = err
                 continue
-        if letzter_verbindungsfehler is not None:
-            raise letzter_verbindungsfehler
+        if last_connection_error is not None:
+            raise last_connection_error
         return None
