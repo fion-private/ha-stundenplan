@@ -1,0 +1,47 @@
+name: Bug report
+description: Report a problem with the Stundenplan integration
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug!
+  - type: input
+    id: version
+    attributes:
+      label: Integration version
+      description: See Settings → Devices & Services → Stundenplan
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant Core version
+      placeholder: "2026.8.0"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: >-
+        Enable debug logging for `custom_components.stundenplan` and paste
+        the relevant log output here. Please redact your school number,
+        username and password.
+      render: text
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics data
+      description: >-
+        If possible, attach the diagnostics download from the integration's
+        device page (Settings → Devices & Services → Stundenplan → ⋮ →
+        Download diagnostics). Credentials are already redacted in this file.
