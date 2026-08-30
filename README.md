@@ -12,11 +12,6 @@ daily substitution plan from [Stundenplan24.de](https://www.stundenplan24.de)
 last lesson, and the full filtered day plan for each of those two days as
 sensors — ready to be used in automations and, eventually, a dashboard card.
 
-> **⚠️ Breaking change (v2.0.0):** entity IDs, all entity/attribute names,
-> and internal config keys changed in this release (see
-> [Migrating from v1.x](#migrating-from-v1x)). If you're upgrading from an
-> earlier version, remove and re-add the integration.
-
 ## Installation
 
 ### Option A: HACS (recommended)
@@ -104,19 +99,6 @@ All six sensors also expose `target_date`, `plan_not_found` and
 `skipped_reason` (e.g. `weekend`, `holiday`, `holiday_calendar`) so you can
 react to them in automations/templates.
 
-## Integration icon
-
-The integration itself uses `mdi:school-outline` in blue as its icon and
-logo (see [`brands/`](brands/) for the generated assets and — importantly —
-why a PR to [home-assistant/brands](https://github.com/home-assistant/brands)
-is required for it to actually show up in Home Assistant and HACS). Until
-that PR is merged, the integration falls back to a generic placeholder icon
-in the UI; this does not affect functionality.
-
-The two lesson-time sensors use `mdi:clock-start` / `mdi:clock-end`, and the
-day-plan sensors use `mdi:timetable`, set directly on the entity classes in
-`sensor.py`.
-
 ## Service
 
 `stundenplan.refresh` — fetches today's and tomorrow's plan immediately
@@ -160,31 +142,6 @@ substitution plans and may occasionally be wrong for unusual phrasing.
 The complete day plan data is already available, structured, in the
 `lessons` attribute of the day-plan sensors. A dedicated Lovelace card for
 it (`ha-stundenplan-ui`) is being developed as a companion project.
-
-## Migrating from v1.x
-
-Version 2.0.0 renamed essentially everything for consistency (English
-source code, today+tomorrow instead of just tomorrow, first+last lesson
-instead of just first lesson) and switched from a once-daily,
-configurable-time fetch to hourly polling:
-
-- Internal config keys changed (e.g. `schulnummer` → `school_number`,
-  `klasse` → `class_name`, `ignorierte_faecher` → `ignored_subjects`,
-  `ignorierte_kurse` → `ignored_courses`,
-  `ferien_kalender` → `holiday_calendar`). The former `abrufzeit` (fetch
-  time) setting no longer exists — the integration now polls automatically
-  every hour instead.
-- The single `sensor.<class>_erste_stunde` and `sensor.<class>_tagesplan`
-  entities are gone, replaced by six new entities (see
-  [Entities](#entities) above) with new attribute names throughout (German
-  → English, e.g. `stunde` → `period`, `beginn` → `start`, `fach` →
-  `subject`, `ziel_datum` → `target_date`, status values `regulaer` →
-  `regular` etc.).
-
-There is no automatic migration. Please **remove the integration and add it
-again** via **Settings → Devices & Services**; you'll go through the same
-short setup wizard as before. Update any automations, templates or
-dashboards that referenced the old entity IDs or attribute names.
 
 ## Development
 

@@ -4,8 +4,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
@@ -18,6 +16,7 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 from homeassistant.util import dt as dt_util
+import voluptuous as vol
 
 from .api import (
     ParsedPlan,
@@ -214,7 +213,7 @@ class Stundenplan24ConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> "Stundenplan24OptionsFlow":
+    def async_get_options_flow(config_entry: ConfigEntry) -> Stundenplan24OptionsFlow:
         return Stundenplan24OptionsFlow()
 
 

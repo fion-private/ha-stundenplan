@@ -116,10 +116,13 @@ class Stundenplan24Coordinator(DataUpdateCoordinator[PlanData]):
             _LOGGER.warning("Holiday calendar lookup failed: %s", err)
             return False
 
-        if not response:
+        if not response or not isinstance(response, dict):
             return False
-        events = response.get(self._holiday_calendar, {}).get("events", [])
-        return len(events) > 0
+        calendar_result = response.get(self._holiday_calendar)
+        if not isinstance(calendar_result, dict):
+            return False
+        events = calendar_result.get("events", [])
+        return isinstance(events, list) and len(events) > 0
 
     async def _async_update_data(self) -> PlanData:
         self._reload_config()
@@ -190,12 +193,9 @@ class Stundenplan24Coordinator(DataUpdateCoordinator[PlanData]):
             return True
 
         candidate = lesson.note_candidate
-        if candidate and (
-            candidate in self._ignored_courses or candidate in self._ignored_subjects
-        ):
-            return True
-
-        return False
+        if not candidate:
+            return False
+        return candidate in self._ignored_courses or candidate in self._ignored_subjects
 
     @staticmethod
     def _determine_first_lesson(lessons: list[Lesson]) -> dict | None:

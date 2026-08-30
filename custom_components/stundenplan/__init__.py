@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import logging
 
-import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+import voluptuous as vol
 
 from .api import Stundenplan24Client
 from .const import CONF_SCHOOL_NUMBER, DOMAIN
