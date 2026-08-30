@@ -97,10 +97,10 @@ def test_lesson_status(
 
 def test_parallel_course_groups_have_different_course_codes(plan_sample_bytes, plan_sample_date):
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
-    third_period = [l for l in plan.classes["5a"].lessons if l.period == 3]
+    third_period = [lesson for lesson in plan.classes["5a"].lessons if lesson.period == 3]
 
     assert len(third_period) == 2
-    courses = {l.course for l in third_period}
+    courses = {lesson.course for lesson in third_period}
     assert courses == {"WPK1", "WPK2"}
 
 
