@@ -7,7 +7,13 @@ license = { file = "LICENSE" }
 requires-python = ">=3.14"
 
 [tool.ruff]
-target-version = "py314"
+# Capped at py313 (not py314) on purpose: py314 would make ruff's formatter
+# rewrite `except (A, B):` to the new unparenthesized `except A, B:` syntax
+# (PEP 758). That's valid at runtime under our actual >=3.14 requirement,
+# but mypy's parser doesn't support it yet - so ruff must not introduce it
+# into our own source. `requires-python` and mypy's `python_version` below
+# stay at 3.14, since those don't affect which syntax ruff emits.
+target-version = "py313"
 line-length = 88
 src = ["custom_components", "tests"]
 

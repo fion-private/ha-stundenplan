@@ -38,7 +38,12 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class Stundenplan24ConfigFlow(ConfigFlow, domain=DOMAIN):
+# mypy doesn't see ConfigFlow's actual `__init_subclass__(cls, *, domain: str)`
+# signature because homeassistant.* is excluded from source parsing (see
+# pyproject.toml, [[tool.mypy.overrides]] for "homeassistant.*") - it falls
+# back to `object.__init_subclass__`, which doesn't accept `domain`. This is
+# the standard, valid Home Assistant config flow registration pattern.
+class Stundenplan24ConfigFlow(ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
     """Setup wizard: credentials -> class -> subjects/courses -> holiday calendar."""
 
     VERSION = 2
