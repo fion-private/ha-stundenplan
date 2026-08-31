@@ -1,4 +1,5 @@
 """Config flow for the Stundenplan integration."""
+
 from __future__ import annotations
 
 import logging
@@ -71,7 +72,9 @@ class Stundenplan24ConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 self._base_data = dict(user_input)
-                self._base_data[CONF_SCHOOL_NUMBER] = user_input[CONF_SCHOOL_NUMBER].strip()
+                self._base_data[CONF_SCHOOL_NUMBER] = user_input[
+                    CONF_SCHOOL_NUMBER
+                ].strip()
                 self._probe = probe
                 if probe is not None and probe.classes:
                     return await self.async_step_class()
@@ -82,7 +85,8 @@ class Stundenplan24ConfigFlow(ConfigFlow, domain=DOMAIN):
         schema = vol.Schema(
             {
                 vol.Required(
-                    CONF_SCHOOL_NUMBER, default=self._base_data.get(CONF_SCHOOL_NUMBER, "")
+                    CONF_SCHOOL_NUMBER,
+                    default=self._base_data.get(CONF_SCHOOL_NUMBER, ""),
                 ): str,
                 vol.Required(
                     CONF_USERNAME, default=self._base_data.get(CONF_USERNAME, "")
@@ -102,13 +106,17 @@ class Stundenplan24ConfigFlow(ConfigFlow, domain=DOMAIN):
         schema = vol.Schema(
             {
                 vol.Required(CONF_CLASS_NAME): SelectSelector(
-                    SelectSelectorConfig(options=options, mode=SelectSelectorMode.DROPDOWN)
+                    SelectSelectorConfig(
+                        options=options, mode=SelectSelectorMode.DROPDOWN
+                    )
                 ),
             }
         )
         return self.async_show_form(step_id="class", data_schema=schema)
 
-    async def async_step_class_manual(self, user_input: dict[str, Any] | None = None) -> Any:
+    async def async_step_class_manual(
+        self, user_input: dict[str, Any] | None = None
+    ) -> Any:
         if user_input is not None:
             self._base_data[CONF_CLASS_NAME] = user_input[CONF_CLASS_NAME].strip()
             self._base_data[CONF_IGNORED_SUBJECTS] = []
@@ -122,11 +130,17 @@ class Stundenplan24ConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={"days": str(PROBE_DAYS)},
         )
 
-    async def async_step_subjects(self, user_input: dict[str, Any] | None = None) -> Any:
+    async def async_step_subjects(
+        self, user_input: dict[str, Any] | None = None
+    ) -> Any:
         assert self._probe is not None
         if user_input is not None:
-            self._base_data[CONF_IGNORED_SUBJECTS] = user_input.get(CONF_IGNORED_SUBJECTS, [])
-            self._base_data[CONF_IGNORED_COURSES] = user_input.get(CONF_IGNORED_COURSES, [])
+            self._base_data[CONF_IGNORED_SUBJECTS] = user_input.get(
+                CONF_IGNORED_SUBJECTS, []
+            )
+            self._base_data[CONF_IGNORED_COURSES] = user_input.get(
+                CONF_IGNORED_COURSES, []
+            )
             return await self.async_step_calendar()
 
         class_name = self._base_data[CONF_CLASS_NAME]
@@ -141,16 +155,24 @@ class Stundenplan24ConfigFlow(ConfigFlow, domain=DOMAIN):
             ),
         }
         if courses:
-            schema_fields[vol.Optional(CONF_IGNORED_COURSES, default=[])] = SelectSelector(
-                SelectSelectorConfig(
-                    options=courses, multiple=True, mode=SelectSelectorMode.DROPDOWN
+            schema_fields[vol.Optional(CONF_IGNORED_COURSES, default=[])] = (
+                SelectSelector(
+                    SelectSelectorConfig(
+                        options=courses, multiple=True, mode=SelectSelectorMode.DROPDOWN
+                    )
                 )
             )
-        return self.async_show_form(step_id="subjects", data_schema=vol.Schema(schema_fields))
+        return self.async_show_form(
+            step_id="subjects", data_schema=vol.Schema(schema_fields)
+        )
 
-    async def async_step_calendar(self, user_input: dict[str, Any] | None = None) -> Any:
+    async def async_step_calendar(
+        self, user_input: dict[str, Any] | None = None
+    ) -> Any:
         if user_input is not None:
-            self._base_data[CONF_HOLIDAY_CALENDAR] = user_input.get(CONF_HOLIDAY_CALENDAR)
+            self._base_data[CONF_HOLIDAY_CALENDAR] = user_input.get(
+                CONF_HOLIDAY_CALENDAR
+            )
             title = f"{self._base_data[CONF_CLASS_NAME]} ({self._base_data[CONF_SCHOOL_NUMBER]})"
             return self.async_create_entry(title=title, data=self._base_data)
 
@@ -197,12 +219,15 @@ class Stundenplan24ConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_USERNAME: user_input[CONF_USERNAME],
                     CONF_PASSWORD: user_input[CONF_PASSWORD],
                 }
-                return self.async_update_reload_and_abort(self._reauth_entry, data=new_data)
+                return self.async_update_reload_and_abort(
+                    self._reauth_entry, data=new_data
+                )
 
         schema = vol.Schema(
             {
                 vol.Required(
-                    CONF_USERNAME, default=self._reauth_entry.data.get(CONF_USERNAME, "")
+                    CONF_USERNAME,
+                    default=self._reauth_entry.data.get(CONF_USERNAME, ""),
                 ): str,
                 vol.Required(CONF_PASSWORD): str,
             }
@@ -269,7 +294,9 @@ class Stundenplan24OptionsFlow(OptionsFlow):
         )
         return self.async_show_form(step_id="init", data_schema=schema)
 
-    async def async_step_subjects(self, user_input: dict[str, Any] | None = None) -> Any:
+    async def async_step_subjects(
+        self, user_input: dict[str, Any] | None = None
+    ) -> Any:
         current = {**self.config_entry.data, **self.config_entry.options}
 
         if user_input is not None:
@@ -287,10 +314,14 @@ class Stundenplan24OptionsFlow(OptionsFlow):
             custom_value = True
 
         selected_subjects = [
-            subject for subject in current.get(CONF_IGNORED_SUBJECTS, []) if subject in subjects
+            subject
+            for subject in current.get(CONF_IGNORED_SUBJECTS, [])
+            if subject in subjects
         ]
         selected_courses = [
-            course for course in current.get(CONF_IGNORED_COURSES, []) if course in courses
+            course
+            for course in current.get(CONF_IGNORED_COURSES, [])
+            if course in courses
         ]
 
         schema_fields: dict = {
@@ -316,4 +347,6 @@ class Stundenplan24OptionsFlow(OptionsFlow):
                     custom_value=custom_value,
                 )
             )
-        return self.async_show_form(step_id="subjects", data_schema=vol.Schema(schema_fields))
+        return self.async_show_form(
+            step_id="subjects", data_schema=vol.Schema(schema_fields)
+        )

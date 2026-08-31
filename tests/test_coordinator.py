@@ -8,6 +8,7 @@ Assistant instance (e.g. the full refresh cycle including the calendar
 lookup) are intentionally not part of this lightweight suite - see
 CONTRIBUTING.md.
 """
+
 from __future__ import annotations
 
 from custom_components.stundenplan.api import Lesson
@@ -141,7 +142,11 @@ class TestDetermineLastLesson:
         assert result["period"] == 2
 
     def test_parallel_groups_in_last_period_are_all_listed(self):
-        lessons = [_lesson(1, "MA"), _lesson(3, "WPK1", course="WPK1"), _lesson(3, "WPK2", course="WPK2")]
+        lessons = [
+            _lesson(1, "MA"),
+            _lesson(3, "WPK1", course="WPK1"),
+            _lesson(3, "WPK2", course="WPK2"),
+        ]
         result = Stundenplan24Coordinator._determine_last_lesson(lessons)
         assert result is not None
         assert {s["subject"] for s in result["subjects"]} == {"WPK1", "WPK2"}

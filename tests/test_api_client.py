@@ -2,6 +2,7 @@
 
 HTTP calls are mocked via `aioresponses` - no real network access happens.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -60,7 +61,9 @@ async def test_fetch_raw_404_becomes_not_found(client, plan_sample_date):
             await client.async_fetch_raw(plan_sample_date)
 
 
-async def test_fetch_raw_server_error_becomes_connection_error(client, plan_sample_date):
+async def test_fetch_raw_server_error_becomes_connection_error(
+    client, plan_sample_date
+):
     with aioresponses() as mocked:
         mocked.get(_url_for(plan_sample_date), status=500)
         with pytest.raises(Stundenplan24ConnectionError):

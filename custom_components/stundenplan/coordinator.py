@@ -9,6 +9,7 @@ calendar).
 Both today's and tomorrow's plan are fetched on every update, so entities
 can show "today" and "tomorrow" data side by side.
 """
+
 from __future__ import annotations
 
 import logging
@@ -164,7 +165,9 @@ class Stundenplan24Coordinator(DataUpdateCoordinator[PlanData]):
         class_data = plan.classes.get(self._class_name)
         if class_data is None:
             _LOGGER.warning(
-                "Class '%s' was not found in the plan for %s", self._class_name, target_date
+                "Class '%s' was not found in the plan for %s",
+                self._class_name,
+                target_date,
             )
             return DayPlan(target_date=target_date, plan_not_found=True)
 
@@ -189,7 +192,11 @@ class Stundenplan24Coordinator(DataUpdateCoordinator[PlanData]):
         TC1/TC2, or when a lesson is cancelled and only recognizable via
         its note text).
         """
-        if lesson.subject and lesson.subject != "---" and lesson.subject in self._ignored_subjects:
+        if (
+            lesson.subject
+            and lesson.subject != "---"
+            and lesson.subject in self._ignored_subjects
+        ):
             return True
 
         candidate = lesson.note_candidate

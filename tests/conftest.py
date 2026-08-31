@@ -1,4 +1,5 @@
 """Shared fixtures for the Stundenplan test suite."""
+
 from __future__ import annotations
 
 from datetime import date

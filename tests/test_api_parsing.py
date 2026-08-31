@@ -4,6 +4,7 @@ These tests require no Home Assistant runtime and no network access; they
 work exclusively against the bundled sample file
 tests/fixtures/plan_sample.xml.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -59,7 +60,9 @@ def test_course_catalog_is_parsed(plan_sample_bytes, plan_sample_date):
     assert class_data.courses == {"WPK1", "WPK2"}
 
 
-def test_class_without_courses_has_empty_course_catalog(plan_sample_bytes, plan_sample_date):
+def test_class_without_courses_has_empty_course_catalog(
+    plan_sample_bytes, plan_sample_date
+):
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
     class_data = plan.classes["6b"]
 
@@ -95,9 +98,13 @@ def test_lesson_status(
     assert matches[0].status == expected_status
 
 
-def test_parallel_course_groups_have_different_course_codes(plan_sample_bytes, plan_sample_date):
+def test_parallel_course_groups_have_different_course_codes(
+    plan_sample_bytes, plan_sample_date
+):
     plan = parse_plan_xml(plan_sample_bytes, plan_sample_date)
-    third_period = [lesson for lesson in plan.classes["5a"].lessons if lesson.period == 3]
+    third_period = [
+        lesson for lesson in plan.classes["5a"].lessons if lesson.period == 3
+    ]
 
     assert len(third_period) == 2
     courses = {lesson.course for lesson in third_period}

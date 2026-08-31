@@ -1,4 +1,5 @@
 """Sensor platform for the Stundenplan integration."""
+
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
@@ -32,7 +33,9 @@ class StundenplanBaseEntity(CoordinatorEntity[Stundenplan24Coordinator]):
 
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: Stundenplan24Coordinator, entry: ConfigEntry) -> None:
+    def __init__(
+        self, coordinator: Stundenplan24Coordinator, entry: ConfigEntry
+    ) -> None:
         super().__init__(coordinator)
         class_name = entry.options.get(CONF_CLASS_NAME, entry.data.get(CONF_CLASS_NAME))
         self._attr_device_info = DeviceInfo(

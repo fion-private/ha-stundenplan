@@ -1,4 +1,5 @@
 """Async API client + XML parser for Stundenplan24 / Indiware (PlanKl files)."""
+
 from __future__ import annotations
 
 import logging
@@ -142,7 +143,9 @@ def _parse_classes(root: ET.Element) -> dict[str, ParsedClass]:
     classes: dict[str, ParsedClass] = {}
     for kl in root.findall("./Klassen/Kl"):
         short_name_el = kl.find("Kurz")
-        short_name = (short_name_el.text or "").strip() if short_name_el is not None else ""
+        short_name = (
+            (short_name_el.text or "").strip() if short_name_el is not None else ""
+        )
         if not short_name:
             continue
         parsed = ParsedClass(short_name=short_name)
