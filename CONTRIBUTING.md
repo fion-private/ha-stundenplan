@@ -36,8 +36,9 @@ pytest --cov=custom_components/stundenplan --cov-report=term-missing
 - `tests/test_api_parsing.py` – pure XML parsing logic (`api.parse_plan_xml`,
   `Lesson`). No network, no Home Assistant runtime required.
 - `tests/test_api_client.py` – HTTP behavior of `Stundenplan24Client`
-  (auth errors, 404 handling, probing), mocked via `aioresponses`. No real
-  network access.
+  (auth errors, 404 handling, probing), mocked via `aioresponses` (installed
+  as the `aioresponses-ng` package - a maintained fork compatible with
+  `aiohttp>=3.14`, same `import aioresponses` API). No real network access.
 - `tests/test_coordinator.py` – the coordinator's filtering and evaluation
   logic (`_is_ignored`, `_determine_first_lesson`, `_determine_last_lesson`,
   `_lesson_to_dict`), exercised directly/via a minimally constructed
@@ -57,7 +58,7 @@ very welcome.
 
 ## Code style
 
-- Python 3.13, formatted and linted with [ruff](https://docs.astral.sh/ruff/)
+- Python 3.14, formatted and linted with [ruff](https://docs.astral.sh/ruff/)
   (configuration in `pyproject.toml`), which enforces PEP 8 plus import
   sorting, pyupgrade and a few common bug-pattern checks - the same tooling
   Home Assistant core itself uses.
